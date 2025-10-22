@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SchViz - Timetable Visualizer</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">
+                    <i class="fas fa-calendar-alt"></i>
+                    PEP Adolescent Timetable
+                </h1>
+            </div>
+        </header>
+
+        <!-- File Upload Section -->
+        <div class="upload-section">
+            <div class="upload-container">
+                <div class="upload-area" id="upload-area">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <h3>Upload Timetable CSV</h3>
+                    <p>Drag and drop your CSV file here or click to browse</p>
+                    <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
+                    <button class="btn btn-primary" id="browse-btn">
+                        <i class="fas fa-folder-open"></i>
+                        Browse Files
+                    </button>
+                </div>
+                <div class="file-info" id="file-info" style="display: none;">
+                    <div class="file-details">
+                        <i class="fas fa-file-csv"></i>
+                        <span id="file-name"></span>
+                        <button class="btn btn-small" id="remove-file">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls" id="controls" style="display: none;">
+            <div class="control-group">
+                <label for="teacher-filter">Filter by Teacher:</label>
+                <select id="teacher-filter">
+                    <option value="">All Teachers</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="subject-filter">Filter by Subject:</label>
+                <select id="subject-filter">
+                    <option value="">All Subjects</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="student-dropdown">Filter by Student:</label>
+                <select id="student-dropdown">
+                    <option value="">All Students</option>
+                </select>
+            </div>
+            <button class="btn btn-secondary" id="export-btn">
+                <i class="fas fa-download"></i>
+                Export
+            </button>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="view-header">
+                <h2>Timetable</h2>
+                <p>Complete schedule showing all classes across days and time slots</p>
+            </div>
+            <div class="timetable-container">
+                <div class="timetable-grid" id="timetable-grid"></div>
+            </div>
+        </main>
+
+        <!-- Loading Spinner -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Loading timetable data...</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

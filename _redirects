@@ -1,0 +1,16 @@
+# Netlify Configuration
+
+This is a static site that can be deployed directly to Netlify.
+
+## Deployment Steps
+
+1. Push your code to GitHub
+2. Connect your GitHub repository to Netlify
+3. Set the following build settings:
+   - Build command: `echo "Static site - no build required"`
+   - Publish directory: `/` (root directory)
+4. Deploy!
+
+## Redirect Rules
+
+All routes should serve the main index.html file for proper SPA behavior.

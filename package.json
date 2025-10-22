@@ -1,0 +1,27 @@
+{
+  "name": "pep-adolescent-timetable",
+  "version": "1.0.0",
+  "description": "A beautiful timetable visualizer for PEP Adolescent program",
+  "main": "index.html",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "dev": "python3 -m http.server 3000",
+    "build": "echo 'No build step required for static site'",
+    "deploy": "echo 'Ready for deployment to Vercel, Netlify, or GitHub Pages'"
+  },
+  "keywords": [
+    "timetable",
+    "visualizer",
+    "csv",
+    "education",
+    "schedule"
+  ],
+  "author": "PEP Adolescent Program",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/pep-adolescent-timetable.git"
+  },
+  "devDependencies": {},
+  "dependencies": {}
+}

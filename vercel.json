@@ -1,22 +1,15 @@
-# Vercel Configuration
-
-This is a static site that can be deployed directly to Vercel without any build process.
-
-## Deployment Steps
-
-1. Push your code to GitHub
-2. Connect your GitHub repository to Vercel
-3. Vercel will automatically detect this as a static site
-4. Deploy!
-
-## Configuration
-
-No special configuration needed - Vercel will serve the static files directly.
-
-## Custom Domain
-
-After deployment, you can add a custom domain in the Vercel dashboard:
-1. Go to your project settings
-2. Navigate to "Domains"
-3. Add your custom domain
-4. Follow the DNS configuration instructions
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "index.html",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
+}

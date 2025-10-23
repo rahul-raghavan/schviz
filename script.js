@@ -480,17 +480,11 @@ class TimetableApp {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('landscape', 'mm', 'a4');
         
-        // Set up the document
-        doc.setFontSize(18);
-        doc.setFont(undefined, 'bold');
-        doc.text('PEP Adolescent Timetable', 20, 20);
+        // Get page dimensions
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
         
-        // Add current date
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
-        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 28);
-        
-        // Create the timetable grid
+        // Create the timetable grid - use full page
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
         const slots = [
             { id: '1', time: '8:50' },
@@ -500,15 +494,19 @@ class TimetableApp {
             { id: '5', time: '11:20' }
         ];
         
-        // Grid dimensions - much larger for better readability
-        const startX = 20;
-        const startY = 40;
-        const cellWidth = 55;  // Increased width
-        const cellHeight = 35; // Increased height
-        const timeColumnWidth = 25; // Dedicated width for time column
+        // Calculate optimal dimensions for full page
+        const margin = 10;
+        const timeColumnWidth = 25;
+        const availableWidth = pageWidth - (2 * margin) - timeColumnWidth;
+        const cellWidth = availableWidth / days.length;
+        const headerHeight = 12;
+        const cellHeight = (pageHeight - (2 * margin) - headerHeight) / (slots.length + 1);
+        
+        const startX = margin;
+        const startY = margin;
         
         // Draw grid lines
-        doc.setLineWidth(0.3);
+        doc.setLineWidth(0.2);
         
         // Draw horizontal lines
         for (let i = 0; i <= slots.length + 1; i++) {
@@ -523,7 +521,7 @@ class TimetableApp {
         }
         
         // Add headers
-        doc.setFontSize(12);
+        doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
         doc.text('Time/Day', startX + 2, startY + 8);
         
@@ -537,12 +535,12 @@ class TimetableApp {
             const rowY = startY + (slotIndex + 1) * cellHeight;
             
             // Add time slot info
-            doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
-            doc.text(`Slot ${slot.id}`, startX + 2, rowY + 8);
-            doc.setFont(undefined, 'normal');
             doc.setFontSize(9);
-            doc.text(slot.time, startX + 2, rowY + 15);
+            doc.setFont(undefined, 'bold');
+            doc.text(`Slot ${slot.id}`, startX + 2, rowY + 6);
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(8);
+            doc.text(slot.time, startX + 2, rowY + 11);
             
             // Add classes for each day
             days.forEach((day, dayIndex) => {
@@ -555,35 +553,35 @@ class TimetableApp {
                 
                 if (classes.length > 0) {
                     classes.forEach((cls, clsIndex) => {
-                        const yOffset = clsIndex * 12; // Increased spacing
-                        if (yOffset < cellHeight - 10) {
+                        const yOffset = clsIndex * 10; // Reduced spacing
+                        if (yOffset < cellHeight - 8) {
                             // Teacher and Subject
-                            doc.setFontSize(9);
+                            doc.setFontSize(8);
                             doc.setFont(undefined, 'bold');
                             const teacherSubject = `${cls.Teacher} | ${cls.Subject}`;
-                            doc.text(teacherSubject, cellCenterX, rowY + 8 + yOffset, { 
+                            doc.text(teacherSubject, cellCenterX, rowY + 6 + yOffset, { 
                                 align: 'center',
-                                maxWidth: cellWidth - 4
+                                maxWidth: cellWidth - 3
                             });
                             
                             // Students (if there's space)
-                            if (yOffset + 12 < cellHeight - 10) {
-                                doc.setFontSize(7);
+                            if (yOffset + 10 < cellHeight - 8) {
+                                doc.setFontSize(6);
                                 doc.setFont(undefined, 'normal');
-                                const students = cls.Students.length > 30 ? 
-                                    cls.Students.substring(0, 30) + '...' : 
+                                const students = cls.Students.length > 25 ? 
+                                    cls.Students.substring(0, 25) + '...' : 
                                     cls.Students;
-                                doc.text(students, cellCenterX, rowY + 12 + yOffset, { 
+                                doc.text(students, cellCenterX, rowY + 9 + yOffset, { 
                                     align: 'center',
-                                    maxWidth: cellWidth - 4
+                                    maxWidth: cellWidth - 3
                                 });
                             }
                         }
                     });
                 } else {
-                    doc.setFontSize(10);
+                    doc.setFontSize(8);
                     doc.setFont(undefined, 'normal');
-                    doc.text('Free', cellCenterX, rowY + 15, { align: 'center' });
+                    doc.text('Free', cellCenterX, rowY + (cellHeight / 2), { align: 'center' });
                 }
             });
         });

@@ -17,58 +17,45 @@
                     <i class="fas fa-calendar-alt"></i>
                     PEP Adolescent Timetable
                 </h1>
-            </div>
-        </header>
-
-        <!-- File Upload Section -->
-        <div class="upload-section">
-            <div class="upload-container">
-                <div class="upload-area" id="upload-area">
-                    <i class="fas fa-cloud-upload-alt"></i>
-                    <h3>Upload Timetable CSV</h3>
-                    <p>Drag and drop your CSV file here or click to browse</p>
-                    <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
-                    <button class="btn btn-primary" id="browse-btn">
-                        <i class="fas fa-folder-open"></i>
-                        Browse Files
-                    </button>
-                </div>
-                <div class="file-info" id="file-info" style="display: none;">
-                    <div class="file-details">
+                <div class="header-actions">
+                    <div class="upload-compact" id="upload-compact">
+                        <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
+                        <button class="btn btn-primary btn-small" id="browse-btn">
+                            <i class="fas fa-upload"></i>
+                            Upload CSV
+                        </button>
+                    </div>
+                    <div class="file-indicator" id="file-indicator" style="display: none;">
                         <i class="fas fa-file-csv"></i>
                         <span id="file-name"></span>
-                        <button class="btn btn-small" id="remove-file">
+                        <button class="btn-remove" id="remove-file">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
                 </div>
             </div>
-        </div>
+        </header>
 
         <!-- Controls -->
         <div class="controls" id="controls" style="display: none;">
             <div class="control-group">
-                <label for="teacher-filter">Filter by Teacher:</label>
+                <label for="teacher-filter">Teacher:</label>
                 <select id="teacher-filter">
                     <option value="">All Teachers</option>
                 </select>
             </div>
             <div class="control-group">
-                <label for="subject-filter">Filter by Subject:</label>
+                <label for="subject-filter">Subject:</label>
                 <select id="subject-filter">
                     <option value="">All Subjects</option>
                 </select>
             </div>
             <div class="control-group">
-                <label for="student-dropdown">Filter by Student:</label>
+                <label for="student-dropdown">Student:</label>
                 <select id="student-dropdown">
                     <option value="">All Students</option>
                 </select>
             </div>
-            <button class="btn btn-secondary" id="export-btn">
-                <i class="fas fa-download"></i>
-                Export
-            </button>
         </div>
 
         <!-- Main Content -->

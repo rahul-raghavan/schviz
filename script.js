@@ -146,14 +146,12 @@ class TimetableApp {
 
     setupEventListeners() {
         // File upload events
-        const uploadArea = document.getElementById('upload-area');
         const fileInput = document.getElementById('csv-file-input');
         const browseBtn = document.getElementById('browse-btn');
         const removeFileBtn = document.getElementById('remove-file');
 
         // Debug logging
         console.log('Setting up event listeners...');
-        console.log('Upload area:', uploadArea);
         console.log('File input:', fileInput);
         console.log('Browse button:', browseBtn);
 
@@ -184,35 +182,7 @@ class TimetableApp {
             console.error('File input not found for change event');
         }
 
-        // Drag and drop events
-        if (uploadArea) {
-            uploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                uploadArea.classList.add('dragover');
-            });
-        } else {
-            console.error('Upload area not found');
-        }
-
-        if (uploadArea) {
-            uploadArea.addEventListener('dragleave', () => {
-                uploadArea.classList.remove('dragover');
-            });
-
-            uploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadArea.classList.remove('dragover');
-                if (e.dataTransfer.files.length > 0) {
-                    this.handleFileUpload(e.dataTransfer.files[0]);
-                }
-            });
-
-            uploadArea.addEventListener('click', () => {
-                if (fileInput) {
-                    fileInput.click();
-                }
-            });
-        }
+        // Drag and drop events removed - using simple button upload
 
         // Remove file
         if (removeFileBtn) {
@@ -250,13 +220,7 @@ class TimetableApp {
             });
         }
 
-        // Export button
-        const exportBtn = document.getElementById('export-btn');
-        if (exportBtn) {
-            exportBtn.addEventListener('click', () => {
-                this.exportData();
-            });
-        }
+        // Export button removed - not needed
     }
 
     populateFilters() {
@@ -337,27 +301,27 @@ class TimetableApp {
     }
 
     showFileInfo(file) {
-        const uploadArea = document.getElementById('upload-area');
-        const fileInfo = document.getElementById('file-info');
+        const uploadCompact = document.getElementById('upload-compact');
+        const fileIndicator = document.getElementById('file-indicator');
         const fileName = document.getElementById('file-name');
 
-        uploadArea.style.display = 'none';
+        uploadCompact.style.display = 'none';
         fileName.textContent = file.name;
-        fileInfo.style.display = 'block';
+        fileIndicator.style.display = 'flex';
     }
 
     removeFile() {
-        const uploadArea = document.getElementById('upload-area');
-        const fileInfo = document.getElementById('file-info');
+        const uploadCompact = document.getElementById('upload-compact');
+        const fileIndicator = document.getElementById('file-indicator');
         const controls = document.getElementById('controls');
         const fileInput = document.getElementById('csv-file-input');
 
         // Reset file input
         fileInput.value = '';
         
-        // Show upload area, hide file info and controls
-        uploadArea.style.display = 'block';
-        fileInfo.style.display = 'none';
+        // Show upload button, hide file indicator and controls
+        uploadCompact.style.display = 'flex';
+        fileIndicator.style.display = 'none';
         controls.style.display = 'none';
 
         // Clear data
@@ -370,13 +334,13 @@ class TimetableApp {
     }
 
     showUploadInterface() {
-        const uploadArea = document.getElementById('upload-area');
-        const fileInfo = document.getElementById('file-info');
+        const uploadCompact = document.getElementById('upload-compact');
+        const fileIndicator = document.getElementById('file-indicator');
         const controls = document.getElementById('controls');
         
-        // Show upload area, hide file info and controls initially
-        uploadArea.style.display = 'block';
-        fileInfo.style.display = 'none';
+        // Show upload button, hide file indicator and controls initially
+        uploadCompact.style.display = 'flex';
+        fileIndicator.style.display = 'none';
         controls.style.display = 'none';
     }
 

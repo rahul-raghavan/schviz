@@ -481,14 +481,14 @@ class TimetableApp {
         const doc = new jsPDF('landscape', 'mm', 'a4');
         
         // Set up the document
-        doc.setFontSize(16);
+        doc.setFontSize(18);
         doc.setFont(undefined, 'bold');
         doc.text('PEP Adolescent Timetable', 20, 20);
         
         // Add current date
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
-        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 30);
+        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 28);
         
         // Create the timetable grid
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -500,49 +500,49 @@ class TimetableApp {
             { id: '5', time: '11:20' }
         ];
         
-        // Grid dimensions
+        // Grid dimensions - much larger for better readability
         const startX = 20;
         const startY = 40;
-        const cellWidth = 50;
-        const cellHeight = 25;
-        const headerHeight = 15;
+        const cellWidth = 55;  // Increased width
+        const cellHeight = 35; // Increased height
+        const timeColumnWidth = 25; // Dedicated width for time column
         
         // Draw grid lines
-        doc.setLineWidth(0.5);
+        doc.setLineWidth(0.3);
         
         // Draw horizontal lines
         for (let i = 0; i <= slots.length + 1; i++) {
             const y = startY + (i * cellHeight);
-            doc.line(startX, y, startX + (days.length + 1) * cellWidth, y);
+            doc.line(startX, y, startX + timeColumnWidth + (days.length * cellWidth), y);
         }
         
         // Draw vertical lines
         for (let i = 0; i <= days.length + 1; i++) {
-            const x = startX + (i * cellWidth);
+            const x = startX + (i === 0 ? 0 : timeColumnWidth + (i - 1) * cellWidth);
             doc.line(x, startY, x, startY + (slots.length + 1) * cellHeight);
         }
         
         // Add headers
         doc.setFontSize(12);
         doc.setFont(undefined, 'bold');
-        doc.text('Time/Day', startX + 5, startY + 10);
+        doc.text('Time/Day', startX + 2, startY + 8);
         
         days.forEach((day, index) => {
-            doc.text(day, startX + (index + 1) * cellWidth + 5, startY + 10);
+            const x = startX + timeColumnWidth + (index * cellWidth) + (cellWidth / 2);
+            doc.text(day, x, startY + 8, { align: 'center' });
         });
         
         // Add time slots and classes
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
-        
         slots.forEach((slot, slotIndex) => {
             const rowY = startY + (slotIndex + 1) * cellHeight;
             
             // Add time slot info
+            doc.setFontSize(10);
             doc.setFont(undefined, 'bold');
-            doc.text(`Slot ${slot.id}`, startX + 5, rowY + 5);
+            doc.text(`Slot ${slot.id}`, startX + 2, rowY + 8);
             doc.setFont(undefined, 'normal');
-            doc.text(slot.time, startX + 5, rowY + 12);
+            doc.setFontSize(9);
+            doc.text(slot.time, startX + 2, rowY + 15);
             
             // Add classes for each day
             days.forEach((day, dayIndex) => {
@@ -550,22 +550,40 @@ class TimetableApp {
                     row.Day === day && row.Slot === slot.id
                 );
                 
-                const cellX = startX + (dayIndex + 1) * cellWidth;
+                const cellX = startX + timeColumnWidth + (dayIndex * cellWidth);
+                const cellCenterX = cellX + (cellWidth / 2);
                 
                 if (classes.length > 0) {
                     classes.forEach((cls, clsIndex) => {
-                        const yOffset = clsIndex * 8;
-                        if (yOffset < cellHeight - 5) {
-                            doc.setFontSize(8);
-                            doc.text(`${cls.Teacher} | ${cls.Subject}`, cellX + 2, rowY + 5 + yOffset);
-                            if (yOffset + 8 < cellHeight - 5) {
-                                doc.text(cls.Students, cellX + 2, rowY + 10 + yOffset);
+                        const yOffset = clsIndex * 12; // Increased spacing
+                        if (yOffset < cellHeight - 10) {
+                            // Teacher and Subject
+                            doc.setFontSize(9);
+                            doc.setFont(undefined, 'bold');
+                            const teacherSubject = `${cls.Teacher} | ${cls.Subject}`;
+                            doc.text(teacherSubject, cellCenterX, rowY + 8 + yOffset, { 
+                                align: 'center',
+                                maxWidth: cellWidth - 4
+                            });
+                            
+                            // Students (if there's space)
+                            if (yOffset + 12 < cellHeight - 10) {
+                                doc.setFontSize(7);
+                                doc.setFont(undefined, 'normal');
+                                const students = cls.Students.length > 30 ? 
+                                    cls.Students.substring(0, 30) + '...' : 
+                                    cls.Students;
+                                doc.text(students, cellCenterX, rowY + 12 + yOffset, { 
+                                    align: 'center',
+                                    maxWidth: cellWidth - 4
+                                });
                             }
                         }
                     });
                 } else {
-                    doc.setFontSize(8);
-                    doc.text('Free', cellX + 5, rowY + 8);
+                    doc.setFontSize(10);
+                    doc.setFont(undefined, 'normal');
+                    doc.text('Free', cellCenterX, rowY + 15, { align: 'center' });
                 }
             });
         });

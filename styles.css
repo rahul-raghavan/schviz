@@ -387,12 +387,25 @@ body {
 }
 
 .grid-cell.time-slot {
-    background: #f8f9fa;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
     font-weight: 600;
-    color: #495057;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    padding: 0.5rem;
+}
+
+.slot-number {
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.slot-time {
+    font-size: 0.8rem;
+    font-weight: 400;
+    opacity: 0.9;
 }
 
 .grid-cell.class-slot {

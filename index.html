@@ -32,6 +32,10 @@
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
+                    <button class="btn btn-secondary btn-small" id="pdf-export-btn" style="display: none;">
+                        <i class="fas fa-file-pdf"></i>
+                        Save PDF
+                    </button>
                 </div>
             </div>
         </header>
@@ -60,10 +64,6 @@
 
         <!-- Main Content -->
         <main class="main-content">
-            <div class="view-header">
-                <h2>Timetable</h2>
-                <p>Complete schedule showing all classes across days and time slots</p>
-            </div>
             <div class="timetable-container">
                 <div class="timetable-grid" id="timetable-grid"></div>
             </div>
@@ -76,6 +76,7 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

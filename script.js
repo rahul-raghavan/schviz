@@ -220,7 +220,13 @@ class TimetableApp {
             });
         }
 
-        // Export button removed - not needed
+        // PDF Export button
+        const pdfExportBtn = document.getElementById('pdf-export-btn');
+        if (pdfExportBtn) {
+            pdfExportBtn.addEventListener('click', () => {
+                this.exportToPDF();
+            });
+        }
     }
 
     populateFilters() {
@@ -346,7 +352,9 @@ class TimetableApp {
 
     showControls() {
         const controls = document.getElementById('controls');
+        const pdfExportBtn = document.getElementById('pdf-export-btn');
         controls.style.display = 'flex';
+        pdfExportBtn.style.display = 'inline-flex';
     }
 
     applyFilters() {
@@ -368,7 +376,13 @@ class TimetableApp {
         container.innerHTML = '';
 
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-        const slots = ['1', '2', '3', '4', '5'];
+        const slots = [
+            { id: '1', time: '8:50' },
+            { id: '2', time: '9:25' },
+            { id: '3', time: '10:00' },
+            { id: '4', time: '10:45' },
+            { id: '5', time: '11:20' }
+        ];
 
         // Create header row with days
         const headerRow = document.createElement('div');
@@ -388,13 +402,16 @@ class TimetableApp {
             // Time slot label (first column of each row)
             const timeCell = document.createElement('div');
             timeCell.className = 'grid-cell time-slot';
-            timeCell.textContent = `Slot ${slot}`;
+            timeCell.innerHTML = `
+                <div class="slot-number">Slot ${slot.id}</div>
+                <div class="slot-time">${slot.time}</div>
+            `;
             container.appendChild(timeCell);
 
             // Classes for each day in this time slot
             days.forEach(day => {
                 const classes = this.filteredData.filter(row => 
-                    row.Day === day && row.Slot === slot
+                    row.Day === day && row.Slot === slot.id
                 );
 
                 const cell = document.createElement('div');
@@ -457,6 +474,104 @@ class TimetableApp {
 
     hideLoading() {
         document.getElementById('loading').classList.add('hidden');
+    }
+
+    exportToPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('landscape', 'mm', 'a4');
+        
+        // Set up the document
+        doc.setFontSize(16);
+        doc.setFont(undefined, 'bold');
+        doc.text('PEP Adolescent Timetable', 20, 20);
+        
+        // Add current date
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 30);
+        
+        // Create the timetable grid
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        const slots = [
+            { id: '1', time: '8:50' },
+            { id: '2', time: '9:25' },
+            { id: '3', time: '10:00' },
+            { id: '4', time: '10:45' },
+            { id: '5', time: '11:20' }
+        ];
+        
+        // Grid dimensions
+        const startX = 20;
+        const startY = 40;
+        const cellWidth = 50;
+        const cellHeight = 25;
+        const headerHeight = 15;
+        
+        // Draw grid lines
+        doc.setLineWidth(0.5);
+        
+        // Draw horizontal lines
+        for (let i = 0; i <= slots.length + 1; i++) {
+            const y = startY + (i * cellHeight);
+            doc.line(startX, y, startX + (days.length + 1) * cellWidth, y);
+        }
+        
+        // Draw vertical lines
+        for (let i = 0; i <= days.length + 1; i++) {
+            const x = startX + (i * cellWidth);
+            doc.line(x, startY, x, startY + (slots.length + 1) * cellHeight);
+        }
+        
+        // Add headers
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text('Time/Day', startX + 5, startY + 10);
+        
+        days.forEach((day, index) => {
+            doc.text(day, startX + (index + 1) * cellWidth + 5, startY + 10);
+        });
+        
+        // Add time slots and classes
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        
+        slots.forEach((slot, slotIndex) => {
+            const rowY = startY + (slotIndex + 1) * cellHeight;
+            
+            // Add time slot info
+            doc.setFont(undefined, 'bold');
+            doc.text(`Slot ${slot.id}`, startX + 5, rowY + 5);
+            doc.setFont(undefined, 'normal');
+            doc.text(slot.time, startX + 5, rowY + 12);
+            
+            // Add classes for each day
+            days.forEach((day, dayIndex) => {
+                const classes = this.filteredData.filter(row => 
+                    row.Day === day && row.Slot === slot.id
+                );
+                
+                const cellX = startX + (dayIndex + 1) * cellWidth;
+                
+                if (classes.length > 0) {
+                    classes.forEach((cls, clsIndex) => {
+                        const yOffset = clsIndex * 8;
+                        if (yOffset < cellHeight - 5) {
+                            doc.setFontSize(8);
+                            doc.text(`${cls.Teacher} | ${cls.Subject}`, cellX + 2, rowY + 5 + yOffset);
+                            if (yOffset + 8 < cellHeight - 5) {
+                                doc.text(cls.Students, cellX + 2, rowY + 10 + yOffset);
+                            }
+                        }
+                    });
+                } else {
+                    doc.setFontSize(8);
+                    doc.text('Free', cellX + 5, rowY + 8);
+                }
+            });
+        });
+        
+        // Save the PDF
+        doc.save('timetable.pdf');
     }
 }
 

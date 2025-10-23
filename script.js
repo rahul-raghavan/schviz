@@ -564,25 +564,19 @@ class TimetableApp {
                                 maxWidth: cellWidth - 3
                             });
                             
-                            // Students (if there's space)
+                            // Students (if there's space) - no truncation
                             if (yOffset + 10 < cellHeight - 8) {
                                 doc.setFontSize(6);
                                 doc.setFont(undefined, 'normal');
-                                const students = cls.Students.length > 25 ? 
-                                    cls.Students.substring(0, 25) + '...' : 
-                                    cls.Students;
-                                doc.text(students, cellCenterX, rowY + 9 + yOffset, { 
+                                doc.text(cls.Students, cellCenterX, rowY + 9 + yOffset, { 
                                     align: 'center',
                                     maxWidth: cellWidth - 3
                                 });
                             }
                         }
                     });
-                } else {
-                    doc.setFontSize(8);
-                    doc.setFont(undefined, 'normal');
-                    doc.text('Free', cellCenterX, rowY + (cellHeight / 2), { align: 'center' });
                 }
+                // Leave empty cells blank - no "Free" text
             });
         });
         

@@ -15,6 +15,7 @@ class TimetableApp {
     async init() {
         this.setupEventListeners();
         this.hideLoading();
+        this.showUploadInterface();
     }
 
     async loadData() {
@@ -150,62 +151,112 @@ class TimetableApp {
         const browseBtn = document.getElementById('browse-btn');
         const removeFileBtn = document.getElementById('remove-file');
 
+        // Debug logging
+        console.log('Setting up event listeners...');
+        console.log('Upload area:', uploadArea);
+        console.log('File input:', fileInput);
+        console.log('Browse button:', browseBtn);
+
         // Browse button
-        browseBtn.addEventListener('click', () => {
-            fileInput.click();
-        });
+        if (browseBtn) {
+            browseBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log('Browse button clicked');
+                if (fileInput) {
+                    fileInput.click();
+                } else {
+                    console.error('File input not found');
+                }
+            });
+        } else {
+            console.error('Browse button not found');
+        }
 
         // File input change
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                this.handleFileUpload(e.target.files[0]);
-            }
-        });
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                console.log('File input changed, files:', e.target.files.length);
+                if (e.target.files.length > 0) {
+                    this.handleFileUpload(e.target.files[0]);
+                }
+            });
+        } else {
+            console.error('File input not found for change event');
+        }
 
         // Drag and drop events
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
+        if (uploadArea) {
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+        } else {
+            console.error('Upload area not found');
+        }
 
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
+        if (uploadArea) {
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
 
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            if (e.dataTransfer.files.length > 0) {
-                this.handleFileUpload(e.dataTransfer.files[0]);
-            }
-        });
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                if (e.dataTransfer.files.length > 0) {
+                    this.handleFileUpload(e.dataTransfer.files[0]);
+                }
+            });
+
+            uploadArea.addEventListener('click', () => {
+                if (fileInput) {
+                    fileInput.click();
+                }
+            });
+        }
 
         // Remove file
-        removeFileBtn.addEventListener('click', () => {
-            this.removeFile();
-        });
+        if (removeFileBtn) {
+            removeFileBtn.addEventListener('click', () => {
+                this.removeFile();
+            });
+        } else {
+            console.error('Remove file button not found');
+        }
 
         // Filters
-        document.getElementById('teacher-filter').addEventListener('change', (e) => {
-            this.filters.teacher = e.target.value;
-            this.applyFilters();
-        });
+        const teacherFilter = document.getElementById('teacher-filter');
+        const subjectFilter = document.getElementById('subject-filter');
+        const studentDropdown = document.getElementById('student-dropdown');
 
-        document.getElementById('subject-filter').addEventListener('change', (e) => {
-            this.filters.subject = e.target.value;
-            this.applyFilters();
-        });
+        if (teacherFilter) {
+            teacherFilter.addEventListener('change', (e) => {
+                this.filters.teacher = e.target.value;
+                this.applyFilters();
+            });
+        }
+
+        if (subjectFilter) {
+            subjectFilter.addEventListener('change', (e) => {
+                this.filters.subject = e.target.value;
+                this.applyFilters();
+            });
+        }
 
         // Student dropdown
-        document.getElementById('student-dropdown').addEventListener('change', (e) => {
-            this.filters.student = e.target.value.toLowerCase();
-            this.applyFilters();
-        });
+        if (studentDropdown) {
+            studentDropdown.addEventListener('change', (e) => {
+                this.filters.student = e.target.value.toLowerCase();
+                this.applyFilters();
+            });
+        }
 
         // Export button
-        document.getElementById('export-btn').addEventListener('click', () => {
-            this.exportData();
-        });
+        const exportBtn = document.getElementById('export-btn');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => {
+                this.exportData();
+            });
+        }
     }
 
     populateFilters() {
@@ -316,6 +367,17 @@ class TimetableApp {
         // Clear timetable
         const container = document.getElementById('timetable-grid');
         container.innerHTML = '';
+    }
+
+    showUploadInterface() {
+        const uploadArea = document.getElementById('upload-area');
+        const fileInfo = document.getElementById('file-info');
+        const controls = document.getElementById('controls');
+        
+        // Show upload area, hide file info and controls initially
+        uploadArea.style.display = 'block';
+        fileInfo.style.display = 'none';
+        controls.style.display = 'none';
     }
 
     showControls() {

@@ -583,8 +583,8 @@ class TimetableApp {
                 
                 if (classes.length > 0) {
                     classes.forEach((cls, clsIndex) => {
-                        const yOffset = clsIndex * 16; // Increased spacing for complete class entries
-                        if (yOffset < cellHeight - 16) { // More room for complete entries
+                        const yOffset = clsIndex * 14; // Simple spacing
+                        if (yOffset < cellHeight - 10) { // Basic room check
                             // Teacher and Subject
                             doc.setFontSize(8);
                             doc.setFont(undefined, 'bold');
@@ -594,15 +594,18 @@ class TimetableApp {
                                 maxWidth: cellWidth - 3
                             });
                             
-                            // Students - always show if there's room for the teacher/subject line
-                            if (yOffset + 16 < cellHeight - 16) {
-                                doc.setFontSize(6);
-                                doc.setFont(undefined, 'normal');
-                                doc.text(cls.Students, cellCenterX, rowY + 10 + yOffset, { 
-                                    align: 'center',
-                                    maxWidth: cellWidth - 3
-                                });
-                            }
+                            // Students - always show
+                            doc.setFontSize(6);
+                            doc.setFont(undefined, 'normal');
+                            // Capitalize first letter of each student name
+                            const capitalizedStudents = cls.Students.split(', ').map(name => 
+                                name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()
+                            ).join(', ');
+                            
+                            doc.text(capitalizedStudents, cellCenterX, rowY + 10 + yOffset, { 
+                                align: 'center',
+                                maxWidth: cellWidth - 3
+                            });
                         }
                     });
                 }

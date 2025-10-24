@@ -513,7 +513,7 @@ class TimetableApp {
         const timeColumnWidth = 25;
         const availableWidth = pageWidth - (2 * margin) - timeColumnWidth;
         const cellWidth = availableWidth / days.length;
-        const headerHeight = 8; // Reduced header height
+        const headerHeight = 4; // Further reduced header height
         const cellHeight = (pageHeight - (2 * margin) - titleHeight - headerHeight) / (slots.length + 1);
         
         const startX = margin;
@@ -553,11 +553,11 @@ class TimetableApp {
         // Add headers
         doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
-        doc.text('Time/Day', startX + 2, startY + 6);
+        doc.text('Time/Day', startX + 2, startY + 3);
         
         days.forEach((day, index) => {
             const x = startX + timeColumnWidth + (index * cellWidth) + (cellWidth / 2);
-            doc.text(day, x, startY + 6, { align: 'center' });
+            doc.text(day, x, startY + 3, { align: 'center' });
         });
         
         // Add time slots and classes
@@ -597,10 +597,11 @@ class TimetableApp {
                             // Students - always show
                             doc.setFontSize(6);
                             doc.setFont(undefined, 'normal');
-                            // Capitalize first letter of each student name
-                            const capitalizedStudents = cls.Students.split(', ').map(name => 
-                                name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()
-                            ).join(', ');
+                            // Capitalize first letter of each student name properly
+                            const capitalizedStudents = cls.Students.split(', ').map(name => {
+                                const trimmedName = name.trim();
+                                return trimmedName.charAt(0).toUpperCase() + trimmedName.slice(1).toLowerCase();
+                            }).join(', ');
                             
                             doc.text(capitalizedStudents, cellCenterX, rowY + 10 + yOffset, { 
                                 align: 'center',

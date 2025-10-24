@@ -583,8 +583,8 @@ class TimetableApp {
                 
                 if (classes.length > 0) {
                     classes.forEach((cls, clsIndex) => {
-                        const yOffset = clsIndex * 10; // Reduced spacing
-                        if (yOffset < cellHeight - 8) {
+                        const yOffset = clsIndex * 12; // Increased spacing for multiple classes
+                        if (yOffset < cellHeight - 12) { // More room needed
                             // Teacher and Subject
                             doc.setFontSize(8);
                             doc.setFont(undefined, 'bold');
@@ -595,10 +595,10 @@ class TimetableApp {
                             });
                             
                             // Students (if there's space) - no truncation
-                            if (yOffset + 10 < cellHeight - 8) {
+                            if (yOffset + 12 < cellHeight - 12) {
                                 doc.setFontSize(6);
                                 doc.setFont(undefined, 'normal');
-                                doc.text(cls.Students, cellCenterX, rowY + 9 + yOffset, { 
+                                doc.text(cls.Students, cellCenterX, rowY + 10 + yOffset, { 
                                     align: 'center',
                                     maxWidth: cellWidth - 3
                                 });

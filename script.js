@@ -496,14 +496,32 @@ class TimetableApp {
         
         // Calculate optimal dimensions for full page
         const margin = 10;
+        const titleHeight = 15; // Space for title
         const timeColumnWidth = 25;
         const availableWidth = pageWidth - (2 * margin) - timeColumnWidth;
         const cellWidth = availableWidth / days.length;
-        const headerHeight = 12;
-        const cellHeight = (pageHeight - (2 * margin) - headerHeight) / (slots.length + 1);
+        const headerHeight = 8; // Reduced header height
+        const cellHeight = (pageHeight - (2 * margin) - titleHeight - headerHeight) / (slots.length + 1);
         
         const startX = margin;
-        const startY = margin;
+        const startY = margin + titleHeight;
+        
+        // Add title with filters
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.text('PEP Adolescent Timetable', startX, margin + 8);
+        
+        // Add filter information
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        let filterText = '';
+        if (this.filters.teacher) filterText += `Teacher | ${this.filters.teacher}  `;
+        if (this.filters.subject) filterText += `Subject | ${this.filters.subject}  `;
+        if (this.filters.student) filterText += `Student | ${this.filters.student}`;
+        
+        if (filterText) {
+            doc.text(filterText, startX, margin + 12);
+        }
         
         // Draw grid lines
         doc.setLineWidth(0.2);
@@ -521,13 +539,13 @@ class TimetableApp {
         }
         
         // Add headers
-        doc.setFontSize(11);
+        doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
-        doc.text('Time/Day', startX + 2, startY + 8);
+        doc.text('Time/Day', startX + 2, startY + 6);
         
         days.forEach((day, index) => {
             const x = startX + timeColumnWidth + (index * cellWidth) + (cellWidth / 2);
-            doc.text(day, x, startY + 8, { align: 'center' });
+            doc.text(day, x, startY + 6, { align: 'center' });
         });
         
         // Add time slots and classes

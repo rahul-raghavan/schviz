@@ -480,6 +480,19 @@ class TimetableApp {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('landscape', 'mm', 'a4');
         
+        // Ensure we have data to export
+        if (!this.data || this.data.length === 0) {
+            alert('No data available to export. Please upload a CSV file first.');
+            return;
+        }
+        
+        // Use filteredData if filters are applied, otherwise use all data
+        const dataToExport = (this.filters.teacher || this.filters.subject || this.filters.student) 
+            ? this.filteredData 
+            : this.data;
+        
+        console.log('Exporting data:', dataToExport.length, 'rows');
+        
         // Get page dimensions
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -509,19 +522,18 @@ class TimetableApp {
         // Add title with filters
         doc.setFontSize(14);
         doc.setFont(undefined, 'bold');
-        doc.text('PEP Adolescent Timetable', startX, margin + 8);
         
-        // Add filter information
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
-        let filterText = '';
-        if (this.filters.teacher) filterText += `Teacher | ${this.filters.teacher}  `;
-        if (this.filters.subject) filterText += `Subject | ${this.filters.subject}  `;
-        if (this.filters.student) filterText += `Student | ${this.filters.student}`;
-        
-        if (filterText) {
-            doc.text(filterText, startX, margin + 12);
+        // Determine title based on filters
+        let titleText = '';
+        if (this.filters.teacher || this.filters.subject || this.filters.student) {
+            if (this.filters.teacher) titleText += `Teacher | ${this.filters.teacher}`;
+            if (this.filters.subject) titleText += (titleText ? '  ' : '') + `Subject | ${this.filters.subject}`;
+            if (this.filters.student) titleText += (titleText ? '  ' : '') + `Student | ${this.filters.student}`;
+        } else {
+            titleText = 'Full Timetable';
         }
+        
+        doc.text(titleText, startX, margin + 8);
         
         // Draw grid lines
         doc.setLineWidth(0.2);
@@ -562,7 +574,7 @@ class TimetableApp {
             
             // Add classes for each day
             days.forEach((day, dayIndex) => {
-                const classes = this.filteredData.filter(row => 
+                const classes = dataToExport.filter(row => 
                     row.Day === day && row.Slot === slot.id
                 );
                 

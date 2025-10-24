@@ -424,7 +424,10 @@ class TimetableApp {
                         
                         classDiv.innerHTML = `
                             <div class="class-teacher">${cls.Teacher} | ${cls.Subject}</div>
-                            <div class="class-students">${cls.Students}</div>
+                            <div class="class-students">${cls.Students.split(', ').map(name => {
+                                const trimmedName = name.trim();
+                                return trimmedName.charAt(0).toUpperCase() + trimmedName.slice(1).toLowerCase();
+                            }).join(', ')}</div>
                         `;
                         
                         classDiv.classList.add(`subject-${cls.Subject.toLowerCase()}`);
@@ -540,14 +543,21 @@ class TimetableApp {
         
         // Draw horizontal lines
         for (let i = 0; i <= slots.length + 1; i++) {
-            const y = startY + (i * cellHeight);
+            let y;
+            if (i === 0) {
+                y = startY; // First line at startY
+            } else if (i === 1) {
+                y = startY + headerHeight; // Header row uses smaller height
+            } else {
+                y = startY + headerHeight + ((i - 1) * cellHeight); // Regular rows
+            }
             doc.line(startX, y, startX + timeColumnWidth + (days.length * cellWidth), y);
         }
         
         // Draw vertical lines
         for (let i = 0; i <= days.length + 1; i++) {
             const x = startX + (i === 0 ? 0 : timeColumnWidth + (i - 1) * cellWidth);
-            doc.line(x, startY, x, startY + (slots.length + 1) * cellHeight);
+            doc.line(x, startY, x, startY + headerHeight + (slots.length * cellHeight));
         }
         
         // Add headers
@@ -562,7 +572,7 @@ class TimetableApp {
         
         // Add time slots and classes
         slots.forEach((slot, slotIndex) => {
-            const rowY = startY + (slotIndex + 1) * cellHeight;
+            const rowY = startY + headerHeight + (slotIndex * cellHeight);
             
             // Add time slot info
             doc.setFontSize(9);

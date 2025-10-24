@@ -426,8 +426,9 @@ class TimetableApp {
                             <div class="class-teacher">${cls.Teacher} | ${cls.Subject}</div>
                             <div class="class-students">${cls.Students.split(', ').map(name => {
                                 const trimmedName = name.trim();
+                                if (!trimmedName) return '';
                                 return trimmedName.charAt(0).toUpperCase() + trimmedName.slice(1).toLowerCase();
-                            }).join(', ')}</div>
+                            }).filter(name => name).join(', ')}</div>
                         `;
                         
                         classDiv.classList.add(`subject-${cls.Subject.toLowerCase()}`);
@@ -610,8 +611,9 @@ class TimetableApp {
                             // Capitalize first letter of each student name properly
                             const capitalizedStudents = cls.Students.split(', ').map(name => {
                                 const trimmedName = name.trim();
+                                if (!trimmedName) return '';
                                 return trimmedName.charAt(0).toUpperCase() + trimmedName.slice(1).toLowerCase();
-                            }).join(', ');
+                            }).filter(name => name).join(', ');
                             
                             doc.text(capitalizedStudents, cellCenterX, rowY + 10 + yOffset, { 
                                 align: 'center',

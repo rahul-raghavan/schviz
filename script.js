@@ -516,7 +516,7 @@ class TimetableApp {
         const timeColumnWidth = 25;
         const availableWidth = pageWidth - (2 * margin) - timeColumnWidth;
         const cellWidth = availableWidth / days.length;
-        const headerHeight = 4; // Further reduced header height
+        const headerHeight = 8; // Increased header height
         const cellHeight = (pageHeight - (2 * margin) - titleHeight - headerHeight) / (slots.length + 1);
         
         const startX = margin;
@@ -563,11 +563,11 @@ class TimetableApp {
         // Add headers
         doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
-        doc.text('Time/Day', startX + 2, startY + 3);
+        doc.text('Time/Day', startX + 2, startY + 6);
         
         days.forEach((day, index) => {
             const x = startX + timeColumnWidth + (index * cellWidth) + (cellWidth / 2);
-            doc.text(day, x, startY + 3, { align: 'center' });
+            doc.text(day, x, startY + 6, { align: 'center' });
         });
         
         // Add time slots and classes

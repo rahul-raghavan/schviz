@@ -371,18 +371,32 @@ class TimetableApp {
     }
 
 
+    getSlotsFromData() {
+        // Get all unique slot IDs from the data, sorted numerically
+        const slotSet = new Set();
+        this.data.forEach(row => {
+            if (row.Slot) {
+                slotSet.add(row.Slot);
+            }
+        });
+        
+        // Convert to array, sort numerically, and limit to 10 slots
+        const slots = Array.from(slotSet)
+            .map(id => parseInt(id))
+            .filter(id => !isNaN(id) && id >= 1 && id <= 10)
+            .sort((a, b) => a - b)
+            .map(id => ({ id: id.toString() }));
+        
+        return slots;
+    }
+
     renderTimetable() {
         const container = document.getElementById('timetable-grid');
         container.innerHTML = '';
 
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-        const slots = [
-            { id: '1', time: '8:50' },
-            { id: '2', time: '9:25' },
-            { id: '3', time: '10:00' },
-            { id: '4', time: '10:45' },
-            { id: '5', time: '11:20' }
-        ];
+        // Dynamically determine slots from data (up to 10 slots)
+        const slots = this.getSlotsFromData();
 
         // Create header row with days
         const headerRow = document.createElement('div');
@@ -404,7 +418,6 @@ class TimetableApp {
             timeCell.className = 'grid-cell time-slot';
             timeCell.innerHTML = `
                 <div class="slot-number">Slot ${slot.id}</div>
-                <div class="slot-time">${slot.time}</div>
             `;
             container.appendChild(timeCell);
 

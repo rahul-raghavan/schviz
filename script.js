@@ -268,14 +268,18 @@ class TimetableApp {
         const teachers = [...new Set(this.data.map(row => row.Teacher))].sort();
         const subjects = [...new Set(this.data.map(row => row.Subject))].sort();
         
-        // Get all unique students
+        // Get all unique students (exclude "ALL")
         const allStudents = new Set();
         this.data.forEach(row => {
-            row.Students.split(', ').forEach(student => {
-                if (student.trim()) {
-                    allStudents.add(student.trim());
-                }
-            });
+            // Skip rows with "ALL" students
+            if (row.Students.toUpperCase().trim() !== 'ALL') {
+                row.Students.split(', ').forEach(student => {
+                    const trimmed = student.trim();
+                    if (trimmed && trimmed.toUpperCase() !== 'ALL') {
+                        allStudents.add(trimmed);
+                    }
+                });
+            }
         });
         const students = Array.from(allStudents).sort();
 
@@ -461,12 +465,23 @@ class TimetableApp {
         this.filteredData = this.data.filter(row => {
             const teacherMatch = !this.filters.teacher || row.Teacher === this.filters.teacher;
             const subjectMatch = !this.filters.subject || row.Subject === this.filters.subject;
-            const studentMatch = !this.filters.student || 
-                row.Students.toLowerCase().includes(this.filters.student);
+            
+            // Handle student filter: "ALL" means all students, so it matches any student filter
+            let studentMatch = true;
+            if (this.filters.student) {
+                const studentsUpper = row.Students.toUpperCase().trim();
+                if (studentsUpper === 'ALL') {
+                    // If row has "ALL" students, it matches any student filter
+                    studentMatch = true;
+                } else {
+                    // Otherwise, check if the student name is in the list
+                    studentMatch = row.Students.toLowerCase().includes(this.filters.student);
+                }
+            }
 
             return teacherMatch && subjectMatch && studentMatch;
         });
-
+        
         this.renderTimetable();
     }
 
@@ -539,13 +554,21 @@ class TimetableApp {
                         const classDiv = document.createElement('div');
                         classDiv.className = 'class-info';
                         
-                        classDiv.innerHTML = `
-                            <div class="class-teacher">${cls.Teacher} | ${cls.Subject}</div>
-                            <div class="class-students">${cls.Students.split(', ').map(name => {
+                        // Handle "ALL" students case
+                        let studentsDisplay = '';
+                        if (cls.Students.toUpperCase().trim() === 'ALL') {
+                            studentsDisplay = 'All Students';
+                        } else {
+                            studentsDisplay = cls.Students.split(', ').map(name => {
                                 const trimmedName = name.trim();
                                 if (!trimmedName) return '';
                                 return trimmedName.charAt(0).toUpperCase() + trimmedName.slice(1).toLowerCase();
-                            }).filter(name => name).join(', ')}</div>
+                            }).filter(name => name).join(', ');
+                        }
+                        
+                        classDiv.innerHTML = `
+                            <div class="class-teacher">${cls.Teacher} | ${cls.Subject}</div>
+                            <div class="class-students">${studentsDisplay}</div>
                         `;
                         
                         classDiv.classList.add(`subject-${cls.Subject.toLowerCase()}`);
@@ -740,12 +763,17 @@ class TimetableApp {
                                 // Students - always show
                                 doc.setFontSize(6);
                                 doc.setFont(undefined, 'normal');
-                                // Capitalize first letter of each student name properly
-                                const capitalizedStudents = cls.Students.split(', ').map(name => {
-                                    const trimmedName = name.trim();
-                                    if (!trimmedName) return '';
-                                    return trimmedName.charAt(0).toUpperCase() + trimmedName.slice(1).toLowerCase();
-                                }).filter(name => name).join(', ');
+                                // Handle "ALL" students case
+                                let capitalizedStudents = '';
+                                if (cls.Students.toUpperCase().trim() === 'ALL') {
+                                    capitalizedStudents = 'All Students';
+                                } else {
+                                    capitalizedStudents = cls.Students.split(', ').map(name => {
+                                        const trimmedName = name.trim();
+                                        if (!trimmedName) return '';
+                                        return trimmedName.charAt(0).toUpperCase() + trimmedName.slice(1).toLowerCase();
+                                    }).filter(name => name).join(', ');
+                                }
                                 
                                 doc.text(capitalizedStudents, cellCenterX, rowY + 10 + yOffset, { 
                                     align: 'center',

@@ -672,20 +672,21 @@ class TimetableApp {
         // Get all slots dynamically from data (same as UI)
         const allSlots = this.getSlotsFromData();
         
-        // Split slots into pages: first page (1-5), second page (6+)
-        const slotsPerPage = 5;
-        const firstPageSlots = allSlots.filter(slot => parseInt(slot.id) <= 5);
-        const secondPageSlots = allSlots.filter(slot => parseInt(slot.id) > 5);
+        // Split slots into pages: first page (1-4), second page (5+)
+        // Using 4 slots per page gives more row height to accommodate multiple teachers and many students
+        const slotsPerPage = 4;
+        const firstPageSlots = allSlots.filter(slot => parseInt(slot.id) <= 4);
+        const secondPageSlots = allSlots.filter(slot => parseInt(slot.id) > 4);
         
         // Calculate optimal dimensions for full page
-        // Use fixed 5 slots per page to maintain consistent row widths
+        // Use fixed 4 slots per page to maintain consistent row widths and provide more height
         const margin = 10;
         const titleHeight = 15; // Space for title
         const timeColumnWidth = 25;
         const availableWidth = pageWidth - (2 * margin) - timeColumnWidth;
         const cellWidth = availableWidth / days.length;
         const headerHeight = 8;
-        // Calculate cellHeight based on 5 slots per page to keep consistent sizing
+        // Calculate cellHeight based on 4 slots per page for taller rows (better for multiple teachers/students)
         const cellHeight = (pageHeight - (2 * margin) - titleHeight - headerHeight) / (slotsPerPage + 1);
         
         // Helper function to render a page of slots
@@ -775,8 +776,11 @@ class TimetableApp {
                     
                     if (classes.length > 0) {
                         classes.forEach((cls, clsIndex) => {
-                            const yOffset = clsIndex * 14; // Simple spacing
-                            if (yOffset < cellHeight - 10) { // Basic room check
+                            // Increased spacing with taller rows: 16 units per class entry
+                            // Each entry needs: teacher/subject line + spacing + student line
+                            const yOffset = clsIndex * 16; // Increased from 14 to 16 for better spacing
+                            // With taller rows (4 slots per page), we have more room for multiple classes
+                            if (yOffset < cellHeight - 12) { // Increased margin from 10 to 12
                                 // Teacher and Subject
                                 doc.setFontSize(8);
                                 doc.setFont(undefined, 'bold');
@@ -794,7 +798,7 @@ class TimetableApp {
                                     maxWidth: cellWidth - 3
                                 });
                                 
-                                // Students - always show
+                                // Students - always show with more spacing from teacher line
                                 doc.setFontSize(6);
                                 doc.setFont(undefined, 'normal');
                                 // Handle "ALL" students case
@@ -809,7 +813,8 @@ class TimetableApp {
                                     }).filter(name => name).join(', ');
                                 }
                                 
-                                doc.text(capitalizedStudents, cellCenterX, rowY + 10 + yOffset, { 
+                                // Increased spacing between teacher/subject and students (from 10 to 11)
+                                doc.text(capitalizedStudents, cellCenterX, rowY + 11 + yOffset, { 
                                     align: 'center',
                                     maxWidth: cellWidth - 3
                                 });

@@ -265,7 +265,18 @@ class TimetableApp {
     }
 
     populateFilters() {
-        const teachers = [...new Set(this.data.map(row => row.Teacher))].sort();
+        // Extract individual teachers from comma-separated teacher lists
+        const allTeachers = new Set();
+        this.data.forEach(row => {
+            row.Teacher.split(',').forEach(teacher => {
+                const trimmed = teacher.trim();
+                if (trimmed) {
+                    allTeachers.add(trimmed);
+                }
+            });
+        });
+        const teachers = Array.from(allTeachers).sort();
+        
         const subjects = [...new Set(this.data.map(row => row.Subject))].sort();
         
         // Get all unique students (exclude "ALL")
@@ -463,7 +474,13 @@ class TimetableApp {
 
     applyFilters() {
         this.filteredData = this.data.filter(row => {
-            const teacherMatch = !this.filters.teacher || row.Teacher === this.filters.teacher;
+            // Handle teacher filter: check if selected teacher is in comma-separated teacher list
+            let teacherMatch = true;
+            if (this.filters.teacher) {
+                const teachers = row.Teacher.split(',').map(t => t.trim());
+                teacherMatch = teachers.includes(this.filters.teacher);
+            }
+            
             const subjectMatch = !this.filters.subject || row.Subject === this.filters.subject;
             
             // Handle student filter: "ALL" means all students, so it matches any student filter
@@ -554,6 +571,15 @@ class TimetableApp {
                         const classDiv = document.createElement('div');
                         classDiv.className = 'class-info';
                         
+                        // Handle multiple teachers (comma-separated)
+                        const teachers = cls.Teacher.split(',').map(t => t.trim()).filter(t => t);
+                        let teacherDisplay = '';
+                        if (teachers.length > 1) {
+                            teacherDisplay = teachers.join(' & ');
+                        } else {
+                            teacherDisplay = teachers[0] || cls.Teacher;
+                        }
+                        
                         // Handle "ALL" students case
                         let studentsDisplay = '';
                         if (cls.Students.toUpperCase().trim() === 'ALL') {
@@ -567,7 +593,7 @@ class TimetableApp {
                         }
                         
                         classDiv.innerHTML = `
-                            <div class="class-teacher">${cls.Teacher} | ${cls.Subject}</div>
+                            <div class="class-teacher">${teacherDisplay} | ${cls.Subject}</div>
                             <div class="class-students">${studentsDisplay}</div>
                         `;
                         
@@ -754,7 +780,15 @@ class TimetableApp {
                                 // Teacher and Subject
                                 doc.setFontSize(8);
                                 doc.setFont(undefined, 'bold');
-                                const teacherSubject = `${cls.Teacher} | ${cls.Subject}`;
+                                // Handle multiple teachers (comma-separated)
+                                const teachers = cls.Teacher.split(',').map(t => t.trim()).filter(t => t);
+                                let teacherDisplay = '';
+                                if (teachers.length > 1) {
+                                    teacherDisplay = teachers.join(' & ');
+                                } else {
+                                    teacherDisplay = teachers[0] || cls.Teacher;
+                                }
+                                const teacherSubject = `${teacherDisplay} | ${cls.Subject}`;
                                 doc.text(teacherSubject, cellCenterX, rowY + 6 + yOffset, { 
                                     align: 'center',
                                     maxWidth: cellWidth - 3

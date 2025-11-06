@@ -9,6 +9,18 @@ class TimetableApp {
             student: ''
         };
         
+        // Default slot times
+        this.slotTimes = {
+            '1': '9:00',
+            '2': '9:35',
+            '3': '10:25',
+            '4': '11:00',
+            '5': '11:35',
+            '6': '1:00',
+            '7': '1:35',
+            '8': '2:10'
+        };
+        
         this.init();
     }
 
@@ -227,6 +239,29 @@ class TimetableApp {
                 this.exportToPDF();
             });
         }
+
+        // Slot times editor
+        const editTimesBtn = document.getElementById('edit-times-btn');
+        const closeTimesEditor = document.getElementById('close-times-editor');
+        const updateTimesBtn = document.getElementById('update-times-btn');
+
+        if (editTimesBtn) {
+            editTimesBtn.addEventListener('click', () => {
+                this.showSlotTimesEditor();
+            });
+        }
+
+        if (closeTimesEditor) {
+            closeTimesEditor.addEventListener('click', () => {
+                this.hideSlotTimesEditor();
+            });
+        }
+
+        if (updateTimesBtn) {
+            updateTimesBtn.addEventListener('click', () => {
+                this.updateSlotTimes();
+            });
+        }
     }
 
     populateFilters() {
@@ -339,6 +374,71 @@ class TimetableApp {
         container.innerHTML = '';
     }
 
+    showSlotTimesEditor() {
+        const editor = document.getElementById('slot-times-editor');
+        const grid = document.getElementById('slot-times-grid');
+        
+        if (!editor || !grid) return;
+        
+        // Get all slots from data
+        const slots = this.getSlotsFromData();
+        
+        // Clear and populate the grid
+        grid.innerHTML = '';
+        
+        slots.forEach(slot => {
+            const slotDiv = document.createElement('div');
+            slotDiv.className = 'slot-time-item';
+            slotDiv.innerHTML = `
+                <label for="slot-time-${slot.id}">Slot ${slot.id}:</label>
+                <input type="text" 
+                       id="slot-time-${slot.id}" 
+                       class="slot-time-input" 
+                       value="${slot.time || ''}" 
+                       placeholder="e.g., 9:00">
+            `;
+            grid.appendChild(slotDiv);
+        });
+        
+        editor.style.display = 'block';
+    }
+
+    hideSlotTimesEditor() {
+        const editor = document.getElementById('slot-times-editor');
+        if (editor) {
+            editor.style.display = 'none';
+        }
+    }
+
+    updateSlotTimes() {
+        const slots = this.getSlotsFromData();
+        let updated = false;
+        
+        slots.forEach(slot => {
+            const input = document.getElementById(`slot-time-${slot.id}`);
+            if (input && input.value.trim() !== '') {
+                const newTime = input.value.trim();
+                if (this.slotTimes[slot.id] !== newTime) {
+                    this.slotTimes[slot.id] = newTime;
+                    updated = true;
+                }
+            } else {
+                // Clear time if input is empty
+                if (this.slotTimes[slot.id]) {
+                    delete this.slotTimes[slot.id];
+                    updated = true;
+                }
+            }
+        });
+        
+        if (updated) {
+            // Regenerate the timetable
+            this.renderTimetable();
+            // Hide the editor
+            this.hideSlotTimesEditor();
+        }
+    }
+
     showUploadInterface() {
         const uploadCompact = document.getElementById('upload-compact');
         const fileIndicator = document.getElementById('file-indicator');
@@ -385,7 +485,10 @@ class TimetableApp {
             .map(id => parseInt(id))
             .filter(id => !isNaN(id) && id >= 1 && id <= 10)
             .sort((a, b) => a - b)
-            .map(id => ({ id: id.toString() }));
+            .map(id => ({ 
+                id: id.toString(),
+                time: this.slotTimes[id.toString()] || ''
+            }));
         
         return slots;
     }
@@ -418,6 +521,7 @@ class TimetableApp {
             timeCell.className = 'grid-cell time-slot';
             timeCell.innerHTML = `
                 <div class="slot-number">Slot ${slot.id}</div>
+                ${slot.time ? `<div class="slot-time">${slot.time}</div>` : ''}
             `;
             container.appendChild(timeCell);
 
@@ -601,10 +705,15 @@ class TimetableApp {
             slots.forEach((slot, slotIndex) => {
                 const rowY = startY + headerHeight + (slotIndex * cellHeight);
                 
-                // Add time slot info (just Slot number, no time)
+                // Add time slot info (Slot number and time)
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'bold');
                 doc.text(`Slot ${slot.id}`, startX + 2, rowY + 6);
+                if (slot.time) {
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(8);
+                    doc.text(slot.time, startX + 2, rowY + 11);
+                }
                 
                 // Add classes for each day
                 days.forEach((day, dayIndex) => {

@@ -516,128 +516,149 @@ class TimetableApp {
         
         // Create the timetable grid - use full page
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-        const slots = [
-            { id: '1', time: '8:50' },
-            { id: '2', time: '9:25' },
-            { id: '3', time: '10:00' },
-            { id: '4', time: '10:45' },
-            { id: '5', time: '11:20' }
-        ];
+        // Get all slots dynamically from data (same as UI)
+        const allSlots = this.getSlotsFromData();
+        
+        // Split slots into pages: first page (1-5), second page (6+)
+        const slotsPerPage = 5;
+        const firstPageSlots = allSlots.filter(slot => parseInt(slot.id) <= 5);
+        const secondPageSlots = allSlots.filter(slot => parseInt(slot.id) > 5);
         
         // Calculate optimal dimensions for full page
+        // Use fixed 5 slots per page to maintain consistent row widths
         const margin = 10;
         const titleHeight = 15; // Space for title
         const timeColumnWidth = 25;
         const availableWidth = pageWidth - (2 * margin) - timeColumnWidth;
         const cellWidth = availableWidth / days.length;
-        const headerHeight = 8; // Increased header height
-        const cellHeight = (pageHeight - (2 * margin) - titleHeight - headerHeight) / (slots.length + 1);
+        const headerHeight = 8;
+        // Calculate cellHeight based on 5 slots per page to keep consistent sizing
+        const cellHeight = (pageHeight - (2 * margin) - titleHeight - headerHeight) / (slotsPerPage + 1);
         
-        const startX = margin;
-        const startY = margin + titleHeight;
-        
-        // Add title with filters
-        doc.setFontSize(14);
-        doc.setFont(undefined, 'bold');
-        
-        // Determine title based on filters
-        let titleText = '';
-        if (this.filters.teacher || this.filters.subject || this.filters.student) {
-            if (this.filters.teacher) titleText += `Teacher | ${this.filters.teacher}`;
-            if (this.filters.subject) titleText += (titleText ? '  ' : '') + `Subject | ${this.filters.subject}`;
-            if (this.filters.student) titleText += (titleText ? '  ' : '') + `Student | ${this.filters.student}`;
-        } else {
-            titleText = 'Full Timetable';
-        }
-        
-        doc.text(titleText, startX, margin + 8);
-        
-        // Draw grid lines
-        doc.setLineWidth(0.2);
-        
-        // Draw horizontal lines
-        for (let i = 0; i <= slots.length + 1; i++) {
-            let y;
-            if (i === 0) {
-                y = startY; // First line at startY
-            } else if (i === 1) {
-                y = startY + headerHeight; // Header row uses smaller height
-            } else {
-                y = startY + headerHeight + ((i - 1) * cellHeight); // Regular rows
+        // Helper function to render a page of slots
+        const renderPage = (slots, isFirstPage) => {
+            if (slots.length === 0) return;
+            
+            // Add new page if not the first page
+            if (!isFirstPage) {
+                doc.addPage();
             }
-            doc.line(startX, y, startX + timeColumnWidth + (days.length * cellWidth), y);
-        }
-        
-        // Draw vertical lines
-        for (let i = 0; i <= days.length + 1; i++) {
-            const x = startX + (i === 0 ? 0 : timeColumnWidth + (i - 1) * cellWidth);
-            doc.line(x, startY, x, startY + headerHeight + (slots.length * cellHeight));
-        }
-        
-        // Add headers
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'bold');
-        doc.text('Time/Day', startX + 2, startY + 6);
-        
-        days.forEach((day, index) => {
-            const x = startX + timeColumnWidth + (index * cellWidth) + (cellWidth / 2);
-            doc.text(day, x, startY + 6, { align: 'center' });
-        });
-        
-        // Add time slots and classes
-        slots.forEach((slot, slotIndex) => {
-            const rowY = startY + headerHeight + (slotIndex * cellHeight);
             
-            // Add time slot info
-            doc.setFontSize(9);
-            doc.setFont(undefined, 'bold');
-            doc.text(`Slot ${slot.id}`, startX + 2, rowY + 6);
-            doc.setFont(undefined, 'normal');
-            doc.setFontSize(8);
-            doc.text(slot.time, startX + 2, rowY + 11);
+            const startX = margin;
+            const startY = margin + titleHeight;
             
-            // Add classes for each day
-            days.forEach((day, dayIndex) => {
-                const classes = dataToExport.filter(row => 
-                    row.Day === day && row.Slot === slot.id
-                );
+            // Add title with filters (only on first page)
+            if (isFirstPage) {
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
                 
-                const cellX = startX + timeColumnWidth + (dayIndex * cellWidth);
-                const cellCenterX = cellX + (cellWidth / 2);
-                
-                if (classes.length > 0) {
-                    classes.forEach((cls, clsIndex) => {
-                        const yOffset = clsIndex * 14; // Simple spacing
-                        if (yOffset < cellHeight - 10) { // Basic room check
-                            // Teacher and Subject
-                            doc.setFontSize(8);
-                            doc.setFont(undefined, 'bold');
-                            const teacherSubject = `${cls.Teacher} | ${cls.Subject}`;
-                            doc.text(teacherSubject, cellCenterX, rowY + 6 + yOffset, { 
-                                align: 'center',
-                                maxWidth: cellWidth - 3
-                            });
-                            
-                            // Students - always show
-                            doc.setFontSize(6);
-                            doc.setFont(undefined, 'normal');
-                            // Capitalize first letter of each student name properly
-                            const capitalizedStudents = cls.Students.split(', ').map(name => {
-                                const trimmedName = name.trim();
-                                if (!trimmedName) return '';
-                                return trimmedName.charAt(0).toUpperCase() + trimmedName.slice(1).toLowerCase();
-                            }).filter(name => name).join(', ');
-                            
-                            doc.text(capitalizedStudents, cellCenterX, rowY + 10 + yOffset, { 
-                                align: 'center',
-                                maxWidth: cellWidth - 3
-                            });
-                        }
-                    });
+                // Determine title based on filters
+                let titleText = '';
+                if (this.filters.teacher || this.filters.subject || this.filters.student) {
+                    if (this.filters.teacher) titleText += `Teacher | ${this.filters.teacher}`;
+                    if (this.filters.subject) titleText += (titleText ? '  ' : '') + `Subject | ${this.filters.subject}`;
+                    if (this.filters.student) titleText += (titleText ? '  ' : '') + `Student | ${this.filters.student}`;
+                } else {
+                    titleText = 'Full Timetable';
                 }
-                // Leave empty cells blank - no "Free" text
+                
+                doc.text(titleText, startX, margin + 8);
+            }
+            
+            // Draw grid lines
+            doc.setLineWidth(0.2);
+            
+            // Draw horizontal lines
+            for (let i = 0; i <= slots.length + 1; i++) {
+                let y;
+                if (i === 0) {
+                    y = startY; // First line at startY
+                } else if (i === 1) {
+                    y = startY + headerHeight; // Header row uses smaller height
+                } else {
+                    y = startY + headerHeight + ((i - 1) * cellHeight); // Regular rows
+                }
+                doc.line(startX, y, startX + timeColumnWidth + (days.length * cellWidth), y);
+            }
+            
+            // Draw vertical lines
+            for (let i = 0; i <= days.length + 1; i++) {
+                const x = startX + (i === 0 ? 0 : timeColumnWidth + (i - 1) * cellWidth);
+                doc.line(x, startY, x, startY + headerHeight + (slots.length * cellHeight));
+            }
+            
+            // Add headers
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.text('Time/Day', startX + 2, startY + 6);
+            
+            days.forEach((day, index) => {
+                const x = startX + timeColumnWidth + (index * cellWidth) + (cellWidth / 2);
+                doc.text(day, x, startY + 6, { align: 'center' });
             });
-        });
+            
+            // Add time slots and classes
+            slots.forEach((slot, slotIndex) => {
+                const rowY = startY + headerHeight + (slotIndex * cellHeight);
+                
+                // Add time slot info (just Slot number, no time)
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'bold');
+                doc.text(`Slot ${slot.id}`, startX + 2, rowY + 6);
+                
+                // Add classes for each day
+                days.forEach((day, dayIndex) => {
+                    const classes = dataToExport.filter(row => 
+                        row.Day === day && row.Slot === slot.id
+                    );
+                    
+                    const cellX = startX + timeColumnWidth + (dayIndex * cellWidth);
+                    const cellCenterX = cellX + (cellWidth / 2);
+                    
+                    if (classes.length > 0) {
+                        classes.forEach((cls, clsIndex) => {
+                            const yOffset = clsIndex * 14; // Simple spacing
+                            if (yOffset < cellHeight - 10) { // Basic room check
+                                // Teacher and Subject
+                                doc.setFontSize(8);
+                                doc.setFont(undefined, 'bold');
+                                const teacherSubject = `${cls.Teacher} | ${cls.Subject}`;
+                                doc.text(teacherSubject, cellCenterX, rowY + 6 + yOffset, { 
+                                    align: 'center',
+                                    maxWidth: cellWidth - 3
+                                });
+                                
+                                // Students - always show
+                                doc.setFontSize(6);
+                                doc.setFont(undefined, 'normal');
+                                // Capitalize first letter of each student name properly
+                                const capitalizedStudents = cls.Students.split(', ').map(name => {
+                                    const trimmedName = name.trim();
+                                    if (!trimmedName) return '';
+                                    return trimmedName.charAt(0).toUpperCase() + trimmedName.slice(1).toLowerCase();
+                                }).filter(name => name).join(', ');
+                                
+                                doc.text(capitalizedStudents, cellCenterX, rowY + 10 + yOffset, { 
+                                    align: 'center',
+                                    maxWidth: cellWidth - 3
+                                });
+                            }
+                        });
+                    }
+                    // Leave empty cells blank - no "Free" text
+                });
+            });
+        };
+        
+        // Render first page (Slots 1-5)
+        if (firstPageSlots.length > 0) {
+            renderPage(firstPageSlots, true);
+        }
+        
+        // Render second page (Slots 6+)
+        if (secondPageSlots.length > 0) {
+            renderPage(secondPageSlots, false);
+        }
         
         // Save the PDF
         doc.save('timetable.pdf');

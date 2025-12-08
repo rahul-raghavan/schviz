@@ -512,10 +512,10 @@ class TimetableApp {
             }
         });
         
-        // Convert to array, sort numerically, and limit to 10 slots
+        // Convert to array, sort numerically (no upper limit - dynamic based on CSV data)
         const slots = Array.from(slotSet)
             .map(id => parseInt(id))
-            .filter(id => !isNaN(id) && id >= 1 && id <= 10)
+            .filter(id => !isNaN(id) && id >= 1)
             .sort((a, b) => a - b)
             .map(id => ({ 
                 id: id.toString(),
@@ -530,7 +530,7 @@ class TimetableApp {
         container.innerHTML = '';
 
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-        // Dynamically determine slots from data (up to 10 slots)
+        // Dynamically determine slots from data (no limit - based on CSV)
         const slots = this.getSlotsFromData();
 
         // Create header row with days
@@ -672,11 +672,15 @@ class TimetableApp {
         // Get all slots dynamically from data (same as UI)
         const allSlots = this.getSlotsFromData();
         
-        // Split slots into pages: first page (1-4), second page (5+)
+        // Split slots into pages dynamically: 4 slots per page
         // Using 4 slots per page gives more row height to accommodate multiple teachers and many students
         const slotsPerPage = 4;
-        const firstPageSlots = allSlots.filter(slot => parseInt(slot.id) <= 4);
-        const secondPageSlots = allSlots.filter(slot => parseInt(slot.id) > 4);
+        
+        // Dynamically split slots into pages
+        const slotPages = [];
+        for (let i = 0; i < allSlots.length; i += slotsPerPage) {
+            slotPages.push(allSlots.slice(i, i + slotsPerPage));
+        }
         
         // Calculate optimal dimensions for full page
         // Use fixed 4 slots per page to maintain consistent row widths and provide more height
@@ -826,15 +830,10 @@ class TimetableApp {
             });
         };
         
-        // Render first page (Slots 1-5)
-        if (firstPageSlots.length > 0) {
-            renderPage(firstPageSlots, true);
-        }
-        
-        // Render second page (Slots 6+)
-        if (secondPageSlots.length > 0) {
-            renderPage(secondPageSlots, false);
-        }
+        // Render all pages dynamically
+        slotPages.forEach((pageSlots, pageIndex) => {
+            renderPage(pageSlots, pageIndex === 0);
+        });
         
         // Save the PDF
         doc.save('timetable.pdf');

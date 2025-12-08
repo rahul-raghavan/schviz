@@ -585,10 +585,11 @@ class TimetableApp {
                         if (cls.Students.toUpperCase().trim() === 'ALL') {
                             studentsDisplay = 'All Students';
                         } else {
+                            // Preserve original capitalization from CSV
                             studentsDisplay = cls.Students.split(', ').map(name => {
                                 const trimmedName = name.trim();
                                 if (!trimmedName) return '';
-                                return trimmedName.charAt(0).toUpperCase() + trimmedName.slice(1).toLowerCase();
+                                return trimmedName; // Keep original capitalization
                             }).filter(name => name).join(', ');
                         }
                         
@@ -810,10 +811,11 @@ class TimetableApp {
                                 if (cls.Students.toUpperCase().trim() === 'ALL') {
                                     capitalizedStudents = 'All Students';
                                 } else {
+                                    // Preserve original capitalization from CSV
                                     capitalizedStudents = cls.Students.split(', ').map(name => {
                                         const trimmedName = name.trim();
                                         if (!trimmedName) return '';
-                                        return trimmedName.charAt(0).toUpperCase() + trimmedName.slice(1).toLowerCase();
+                                        return trimmedName; // Keep original capitalization
                                     }).filter(name => name).join(', ');
                                 }
                                 

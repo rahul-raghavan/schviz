@@ -1,4 +1,4 @@
-# PEP Adolescent Timetable Visualizer
+# PEP Timetable Visualizer
 
 A beautiful, interactive timetable visualizer that allows users to upload CSV files and generate real-time timetable visualizations.
 

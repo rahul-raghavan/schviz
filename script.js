@@ -8,18 +8,9 @@ class TimetableApp {
             subject: '',
             student: ''
         };
-        
-        // Default slot times
-        this.slotTimes = {
-            '1': '9:00',
-            '2': '9:35',
-            '3': '10:25',
-            '4': '11:00',
-            '5': '11:35',
-            '6': '1:00',
-            '7': '1:35',
-            '8': '2:10'
-        };
+
+        this.dataSlotTimes = {};
+        this.slotTimeOverrides = {};
         
         this.init();
     }
@@ -38,19 +29,30 @@ class TimetableApp {
             }
             const csvText = await response.text();
             console.log('CSV loaded successfully, length:', csvText.length);
-            this.data = this.parseCSV(csvText);
+            const parsed = this.parseTimetableFile(csvText, 'relaxed_timetable - 22oct.csv');
+            this.setTimetableData(parsed.rows, parsed.slotTimes);
             console.log('Parsed data:', this.data.length, 'rows');
-            this.filteredData = [...this.data];
         } catch (error) {
             console.error('Error loading data:', error);
             // Fallback: use the actual CSV data embedded
-            this.data = this.getFullData();
-            this.filteredData = [...this.data];
+            this.setTimetableData(this.getFullData(), {});
         }
     }
 
+    parseTimetableFile(fileText, fileName) {
+        if (fileName.toLowerCase().endsWith('.json')) {
+            return this.parseTimetableJSON(fileText);
+        }
+
+        const rows = this.parseCSV(fileText);
+        return {
+            rows: this.normalizeTimetableRows(rows),
+            slotTimes: this.extractSlotTimes(rows)
+        };
+    }
+
     parseCSV(csvText) {
-        const lines = csvText.trim().split('\n');
+        const lines = csvText.trim().split(/\r?\n/);
         const headers = lines[0].split(',');
         const data = [];
 
@@ -66,6 +68,83 @@ class TimetableApp {
         }
 
         return data;
+    }
+
+    parseTimetableJSON(jsonText) {
+        const payload = JSON.parse(jsonText);
+        const entries = Array.isArray(payload) ? payload : (payload.entries || []);
+        const slotTimes = this.normalizeSlotTimes(payload.slotTimes || {});
+
+        return {
+            rows: entries.map(entry => {
+                const slot = String(entry.slot ?? entry.Slot ?? '');
+                const students = Array.isArray(entry.students)
+                    ? entry.students.join(', ')
+                    : String(entry.students ?? entry.Students ?? '');
+
+                return {
+                    Day: String(entry.day ?? entry.Day ?? ''),
+                    Slot: slot,
+                    Track: String(entry.track ?? entry.Track ?? ''),
+                    Teacher: String(entry.teacher ?? entry.Teacher ?? ''),
+                    Code: String(entry.code ?? entry.Code ?? ''),
+                    Subject: String(entry.subject ?? entry.Subject ?? ''),
+                    Students: students,
+                    StartTime: slotTimes[slot] || ''
+                };
+            }),
+            slotTimes
+        };
+    }
+
+    normalizeTimetableRows(rows) {
+        return rows.filter(row => {
+            const rowType = (row.RowType || '').trim().toLowerCase();
+            if (rowType && rowType !== 'session') return false;
+            return row.Day && row.Slot && row.Teacher && row.Subject;
+        });
+    }
+
+    extractSlotTimes(rows) {
+        const slotTimes = {};
+        const timeColumns = ['StartTime', 'SlotTime', 'Time', 'startTime', 'slotTime', 'time'];
+
+        rows.forEach(row => {
+            const slot = String(row.Slot || '').trim();
+            if (!slot) return;
+
+            const rowType = (row.RowType || '').trim().toLowerCase();
+            const hasTimeColumn = timeColumns.some(column => (row[column] || '').trim());
+            if (rowType && rowType !== 'slot_time' && !hasTimeColumn) return;
+
+            const time = timeColumns
+                .map(column => (row[column] || '').trim())
+                .find(Boolean);
+
+            if (time && !slotTimes[slot]) {
+                slotTimes[slot] = time;
+            }
+        });
+
+        return slotTimes;
+    }
+
+    normalizeSlotTimes(slotTimes) {
+        return Object.entries(slotTimes).reduce((normalized, [slot, time]) => {
+            const slotId = String(slot).trim();
+            const slotTime = String(time || '').trim();
+            if (slotId && slotTime) {
+                normalized[slotId] = slotTime;
+            }
+            return normalized;
+        }, {});
+    }
+
+    setTimetableData(rows, slotTimes) {
+        this.data = rows;
+        this.filteredData = [...rows];
+        this.dataSlotTimes = this.normalizeSlotTimes(slotTimes);
+        this.slotTimeOverrides = {};
     }
 
     parseCSVLine(line) {
@@ -227,7 +306,7 @@ class TimetableApp {
         // Student dropdown
         if (studentDropdown) {
             studentDropdown.addEventListener('change', (e) => {
-                this.filters.student = e.target.value.toLowerCase();
+                this.filters.student = e.target.value;
                 this.applyFilters();
             });
         }
@@ -298,6 +377,10 @@ class TimetableApp {
         const subjectFilter = document.getElementById('subject-filter');
         const studentDropdown = document.getElementById('student-dropdown');
 
+        teacherFilter.innerHTML = '<option value="">All Teachers</option>';
+        subjectFilter.innerHTML = '<option value="">All Subjects</option>';
+        studentDropdown.innerHTML = '<option value="">All Students</option>';
+
         teachers.forEach(teacher => {
             const option = document.createElement('option');
             option.value = teacher;
@@ -322,8 +405,9 @@ class TimetableApp {
 
     handleFileUpload(file) {
         // Validate file type
-        if (!file.name.toLowerCase().endsWith('.csv')) {
-            alert('Please upload a CSV file.');
+        const lowerName = file.name.toLowerCase();
+        if (!lowerName.endsWith('.csv') && !lowerName.endsWith('.json')) {
+            alert('Please upload a CSV or JSON timetable file.');
             return;
         }
 
@@ -340,17 +424,17 @@ class TimetableApp {
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
-                const csvText = e.target.result;
-                this.data = this.parseCSV(csvText);
-                this.filteredData = [...this.data];
+                const fileText = e.target.result;
+                const parsed = this.parseTimetableFile(fileText, file.name);
+                this.setTimetableData(parsed.rows, parsed.slotTimes);
                 
                 // Show controls and render timetable
                 this.showControls();
                 this.populateFilters();
                 this.renderTimetable();
             } catch (error) {
-                alert('Error reading CSV file. Please check the format.');
-                console.error('CSV parsing error:', error);
+                alert('Error reading timetable file. Please check the format.');
+                console.error('Timetable parsing error:', error);
             }
         };
         reader.readAsText(file);
@@ -383,6 +467,8 @@ class TimetableApp {
         // Clear data
         this.data = [];
         this.filteredData = [];
+        this.dataSlotTimes = {};
+        this.slotTimeOverrides = {};
         
         // Clear timetable
         const container = document.getElementById('timetable-grid');
@@ -431,16 +517,22 @@ class TimetableApp {
         
         slots.forEach(slot => {
             const input = document.getElementById(`slot-time-${slot.id}`);
+            const sourceTime = this.dataSlotTimes[slot.id] || '';
             if (input && input.value.trim() !== '') {
                 const newTime = input.value.trim();
-                if (this.slotTimes[slot.id] !== newTime) {
-                    this.slotTimes[slot.id] = newTime;
+                if (newTime === sourceTime) {
+                    if (Object.prototype.hasOwnProperty.call(this.slotTimeOverrides, slot.id)) {
+                        delete this.slotTimeOverrides[slot.id];
+                        updated = true;
+                    }
+                } else if (this.slotTimeOverrides[slot.id] !== newTime) {
+                    this.slotTimeOverrides[slot.id] = newTime;
                     updated = true;
                 }
             } else {
                 // Clear time if input is empty
-                if (this.slotTimes[slot.id]) {
-                    delete this.slotTimes[slot.id];
+                if (this.getSlotTime(slot.id)) {
+                    this.slotTimeOverrides[slot.id] = '';
                     updated = true;
                 }
             }
@@ -492,7 +584,7 @@ class TimetableApp {
                     studentMatch = true;
                 } else {
                     // Otherwise, check if the student name is in the list
-                    studentMatch = row.Students.toLowerCase().includes(this.filters.student);
+                    studentMatch = row.Students.toLowerCase().includes(this.filters.student.toLowerCase());
                 }
             }
 
@@ -519,10 +611,81 @@ class TimetableApp {
             .sort((a, b) => a - b)
             .map(id => ({ 
                 id: id.toString(),
-                time: this.slotTimes[id.toString()] || ''
+                time: this.getSlotTime(id.toString())
             }));
         
         return slots;
+    }
+
+    getSlotTime(slotId) {
+        const id = String(slotId);
+        if (Object.prototype.hasOwnProperty.call(this.slotTimeOverrides, id)) {
+            return this.slotTimeOverrides[id];
+        }
+        return this.dataSlotTimes[id] || '';
+    }
+
+    getClassesForCell(day, slotId, dataRows) {
+        const classes = dataRows.filter(row => 
+            row.Day === day && row.Slot === slotId
+        );
+
+        if (
+            classes.length === 0 &&
+            this.filters.student &&
+            !this.filters.teacher &&
+            !this.filters.subject
+        ) {
+            return [this.createStudyTimeClass(day, slotId)];
+        }
+
+        return classes;
+    }
+
+    createStudyTimeClass(day, slotId) {
+        return {
+            Day: day,
+            Slot: slotId,
+            Track: '',
+            Teacher: 'Indie',
+            Code: `StudyTime_${day}_${slotId}`,
+            Subject: 'StudyTime',
+            Students: this.filters.student,
+            synthetic: true
+        };
+    }
+
+    formatTeacher(cls) {
+        const teachers = cls.Teacher.split(',').map(t => t.trim()).filter(t => t);
+        return teachers.length > 1 ? teachers.join(' & ') : (teachers[0] || cls.Teacher);
+    }
+
+    formatStudents(cls) {
+        if (cls.Students.toUpperCase().trim() === 'ALL') {
+            return 'All Students';
+        }
+
+        return cls.Students.split(',').map(name => name.trim()).filter(Boolean).join(', ');
+    }
+
+    getSubjectClass(subject) {
+        return `subject-${String(subject || '').toLowerCase().replace(/[^a-z0-9_-]+/g, '-')}`;
+    }
+
+    renderClassDiv(cls) {
+        const classDiv = document.createElement('div');
+        classDiv.className = 'class-info';
+        if (cls.synthetic) {
+            classDiv.classList.add('synthetic-studytime');
+        }
+        classDiv.classList.add(this.getSubjectClass(cls.Subject));
+
+        classDiv.innerHTML = `
+            <div class="class-teacher">${this.formatTeacher(cls)} | ${cls.Subject}</div>
+            <div class="class-students">${this.formatStudents(cls)}</div>
+        `;
+
+        return classDiv;
     }
 
     renderTimetable() {
@@ -559,47 +722,14 @@ class TimetableApp {
 
             // Classes for each day in this time slot
             days.forEach(day => {
-                const classes = this.filteredData.filter(row => 
-                    row.Day === day && row.Slot === slot.id
-                );
+                const classes = this.getClassesForCell(day, slot.id, this.filteredData);
 
                 const cell = document.createElement('div');
                 cell.className = 'grid-cell class-slot';
 
                 if (classes.length > 0) {
                     classes.forEach(cls => {
-                        const classDiv = document.createElement('div');
-                        classDiv.className = 'class-info';
-                        
-                        // Handle multiple teachers (comma-separated)
-                        const teachers = cls.Teacher.split(',').map(t => t.trim()).filter(t => t);
-                        let teacherDisplay = '';
-                        if (teachers.length > 1) {
-                            teacherDisplay = teachers.join(' & ');
-                        } else {
-                            teacherDisplay = teachers[0] || cls.Teacher;
-                        }
-                        
-                        // Handle "ALL" students case
-                        let studentsDisplay = '';
-                        if (cls.Students.toUpperCase().trim() === 'ALL') {
-                            studentsDisplay = 'All Students';
-                        } else {
-                            // Preserve original capitalization from CSV
-                            studentsDisplay = cls.Students.split(', ').map(name => {
-                                const trimmedName = name.trim();
-                                if (!trimmedName) return '';
-                                return trimmedName; // Keep original capitalization
-                            }).filter(name => name).join(', ');
-                        }
-                        
-                        classDiv.innerHTML = `
-                            <div class="class-teacher">${teacherDisplay} | ${cls.Subject}</div>
-                            <div class="class-students">${studentsDisplay}</div>
-                        `;
-                        
-                        classDiv.classList.add(`subject-${cls.Subject.toLowerCase()}`);
-                        cell.appendChild(classDiv);
+                        cell.appendChild(this.renderClassDiv(cls));
                     });
                 } else {
                     // Show "Free" for empty slots
@@ -653,7 +783,7 @@ class TimetableApp {
         
         // Ensure we have data to export
         if (!this.data || this.data.length === 0) {
-            alert('No data available to export. Please upload a CSV file first.');
+            alert('No data available to export. Please upload a timetable file first.');
             return;
         }
         
@@ -772,9 +902,7 @@ class TimetableApp {
                 
                 // Add classes for each day
                 days.forEach((day, dayIndex) => {
-                    const classes = dataToExport.filter(row => 
-                        row.Day === day && row.Slot === slot.id
-                    );
+                    const classes = this.getClassesForCell(day, slot.id, dataToExport);
                     
                     const cellX = startX + timeColumnWidth + (dayIndex * cellWidth);
                     const cellCenterX = cellX + (cellWidth / 2);
@@ -789,15 +917,7 @@ class TimetableApp {
                                 // Teacher and Subject
                                 doc.setFontSize(8);
                                 doc.setFont(undefined, 'bold');
-                                // Handle multiple teachers (comma-separated)
-                                const teachers = cls.Teacher.split(',').map(t => t.trim()).filter(t => t);
-                                let teacherDisplay = '';
-                                if (teachers.length > 1) {
-                                    teacherDisplay = teachers.join(' & ');
-                                } else {
-                                    teacherDisplay = teachers[0] || cls.Teacher;
-                                }
-                                const teacherSubject = `${teacherDisplay} | ${cls.Subject}`;
+                                const teacherSubject = `${this.formatTeacher(cls)} | ${cls.Subject}`;
                                 doc.text(teacherSubject, cellCenterX, rowY + 6 + yOffset, { 
                                     align: 'center',
                                     maxWidth: cellWidth - 3
@@ -806,18 +926,7 @@ class TimetableApp {
                                 // Students - always show with more spacing from teacher line
                                 doc.setFontSize(6);
                                 doc.setFont(undefined, 'normal');
-                                // Handle "ALL" students case
-                                let capitalizedStudents = '';
-                                if (cls.Students.toUpperCase().trim() === 'ALL') {
-                                    capitalizedStudents = 'All Students';
-                                } else {
-                                    // Preserve original capitalization from CSV
-                                    capitalizedStudents = cls.Students.split(', ').map(name => {
-                                        const trimmedName = name.trim();
-                                        if (!trimmedName) return '';
-                                        return trimmedName; // Keep original capitalization
-                                    }).filter(name => name).join(', ');
-                                }
+                                const capitalizedStudents = this.formatStudents(cls);
                                 
                                 // Increased spacing between teacher/subject and students (from 10 to 11)
                                 doc.text(capitalizedStudents, cellCenterX, rowY + 11 + yOffset, { 

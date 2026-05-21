@@ -1,13 +1,13 @@
 # PEP Timetable Visualizer
 
-A beautiful, interactive timetable visualizer that allows users to upload CSV files and generate real-time timetable visualizations.
+A beautiful, interactive timetable visualizer that allows users to upload CSV or solver JSON files and generate real-time timetable visualizations.
 
 ## Features
 
-- 📁 **CSV Upload**: Drag & drop or browse to upload timetable CSV files
+- 📁 **Timetable Upload**: Drag & drop or browse to upload timetable CSV or solver JSON files
 - 🎨 **Beautiful UI**: Modern, responsive design with glass-morphism effects
 - 🔍 **Smart Filtering**: Filter by teacher, subject, or student
-- 📊 **Real-time Visualization**: Instant timetable generation from uploaded CSV
+- 📊 **Real-time Visualization**: Instant timetable generation from uploaded timetable files
 - 📱 **Responsive Design**: Works perfectly on desktop and mobile
 - 📥 **Export Functionality**: Download filtered data as CSV
 
@@ -21,13 +21,16 @@ Your CSV file should have the following columns:
 - `Code` - Class code
 - `Subject` - Subject name (Science, Math, SST, English)
 - `Students` - Comma-separated list of students
+- `StartTime`, `SlotTime`, or `Time` - Optional slot label shown beside the slot number
 
 ### Example CSV Format:
 ```csv
-Day,Slot,Track,Teacher,Code,Subject,Students
-Mon,1,1,Sanya,Sanya_2,Math,"Nithil, Aakash, Nuha, Karthika"
-Mon,1,2,Usha,Usha_2,Math,"Aashmi, Arhan, Trisha, Vedaant, Kanav"
+Day,Slot,Track,Teacher,Code,Subject,Students,StartTime
+Mon,1,1,Sanya,Sanya_2,Math,"Nithil, Aakash, Nuha, Karthika",9:00
+Mon,1,2,Usha,Usha_2,Math,"Aashmi, Arhan, Trisha, Vedaant, Kanav",9:00
 ```
+
+Solver JSON exports are also supported when they include an `entries` array and optional `slotTimes` object.
 
 ## Deployment Options
 
@@ -65,7 +68,7 @@ open http://localhost:8000
 
 ## Usage
 
-1. **Upload CSV**: Drag and drop your timetable CSV file or click "Browse Files"
+1. **Upload Timetable**: Drag and drop your timetable CSV or JSON file or click "Browse Files"
 2. **View Timetable**: The timetable will be generated automatically
 3. **Filter Data**: Use the dropdown filters to narrow down the view
 4. **Export**: Click "Export" to download filtered data as CSV
@@ -73,7 +76,7 @@ open http://localhost:8000
 
 ## File Requirements
 
-- **Format**: CSV files only
+- **Format**: CSV or solver JSON files
 - **Size**: Maximum 5MB
 - **Encoding**: UTF-8 recommended
 - **Headers**: Must include all required columns

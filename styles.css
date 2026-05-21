@@ -470,6 +470,16 @@ body {
 .subject-math { border-left-color: #dc3545 !important; }
 .subject-sst { border-left-color: #ffc107 !important; }
 .subject-english { border-left-color: #17a2b8 !important; }
+.subject-studytime { border-left-color: #6c757d !important; }
+
+.synthetic-studytime {
+    background: #f1f3f5;
+    border-left-style: dashed;
+}
+
+.synthetic-studytime .class-teacher {
+    color: #495057;
+}
 
 /* Teacher View */
 .teacher-container {

@@ -4,9 +4,9 @@ class TimetableApp {
         this.data = [];
         this.filteredData = [];
         this.filters = {
-            teacher: '',
-            subject: '',
-            student: ''
+            teacher: [],
+            subject: [],
+            student: []
         };
 
         this.dataSlotTimes = {};
@@ -284,32 +284,52 @@ class TimetableApp {
             console.error('Remove file button not found');
         }
 
-        // Filters
-        const teacherFilter = document.getElementById('teacher-filter');
-        const subjectFilter = document.getElementById('subject-filter');
-        const studentDropdown = document.getElementById('student-dropdown');
+        // Filters — multiselect dropdowns
+        const filterKeys = ['teacher', 'subject', 'student'];
+        filterKeys.forEach(key => {
+            const group = document.getElementById(`${key}-filter`);
+            if (group) {
+                group.addEventListener('change', (e) => {
+                    if (e.target.matches('input[type="checkbox"]')) {
+                        this.onFilterToggle(key);
+                    }
+                });
+            }
+        });
 
-        if (teacherFilter) {
-            teacherFilter.addEventListener('change', (e) => {
-                this.filters.teacher = e.target.value;
-                this.applyFilters();
+        document.querySelectorAll('.multiselect-trigger').forEach(trigger => {
+            trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const key = trigger.dataset.filter;
+                if (filterKeys.includes(key)) {
+                    this.toggleMultiselect(key);
+                }
             });
-        }
+        });
 
-        if (subjectFilter) {
-            subjectFilter.addEventListener('change', (e) => {
-                this.filters.subject = e.target.value;
-                this.applyFilters();
+        document.querySelectorAll('.btn-clear-filter').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const key = btn.dataset.filter;
+                if (filterKeys.includes(key)) {
+                    this.clearFilter(key);
+                }
             });
-        }
+        });
 
-        // Student dropdown
-        if (studentDropdown) {
-            studentDropdown.addEventListener('change', (e) => {
-                this.filters.student = e.target.value;
-                this.applyFilters();
-            });
-        }
+        // Close any open multiselect on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.multiselect')) {
+                this.closeAllMultiselects();
+            }
+        });
+
+        // ESC closes any open multiselect
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.closeAllMultiselects();
+            }
+        });
 
         // PDF Export button
         const pdfExportBtn = document.getElementById('pdf-export-btn');
@@ -373,33 +393,91 @@ class TimetableApp {
         });
         const students = Array.from(allStudents).sort();
 
-        const teacherFilter = document.getElementById('teacher-filter');
-        const subjectFilter = document.getElementById('subject-filter');
-        const studentDropdown = document.getElementById('student-dropdown');
+        this.renderCheckboxGroup('teacher-filter', teachers, this.filters.teacher);
+        this.renderCheckboxGroup('subject-filter', subjects, this.filters.subject);
+        this.renderCheckboxGroup('student-filter', students, this.filters.student);
 
-        teacherFilter.innerHTML = '<option value="">All Teachers</option>';
-        subjectFilter.innerHTML = '<option value="">All Subjects</option>';
-        studentDropdown.innerHTML = '<option value="">All Students</option>';
+        ['teacher', 'subject', 'student'].forEach(key => this.updateMultiselectLabel(key));
+    }
 
-        teachers.forEach(teacher => {
-            const option = document.createElement('option');
-            option.value = teacher;
-            option.textContent = teacher;
-            teacherFilter.appendChild(option);
+    renderCheckboxGroup(containerId, values, selected) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        container.innerHTML = '';
+        values.forEach(value => {
+            const label = document.createElement('label');
+            label.className = 'checkbox-item';
+
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.value = value;
+            input.checked = selected.includes(value);
+
+            const text = document.createElement('span');
+            text.textContent = value;
+
+            label.appendChild(input);
+            label.appendChild(text);
+            container.appendChild(label);
         });
+    }
 
-        subjects.forEach(subject => {
-            const option = document.createElement('option');
-            option.value = subject;
-            option.textContent = subject;
-            subjectFilter.appendChild(option);
-        });
+    onFilterToggle(key) {
+        const group = document.getElementById(`${key}-filter`);
+        if (!group) return;
+        this.filters[key] = Array.from(
+            group.querySelectorAll('input[type="checkbox"]:checked')
+        ).map(input => input.value);
+        this.updateMultiselectLabel(key);
+        this.applyFilters();
+    }
 
-        students.forEach(student => {
-            const option = document.createElement('option');
-            option.value = student;
-            option.textContent = student;
-            studentDropdown.appendChild(option);
+    clearFilter(key) {
+        this.filters[key] = [];
+        const group = document.getElementById(`${key}-filter`);
+        if (group) {
+            group.querySelectorAll('input[type="checkbox"]').forEach(input => {
+                input.checked = false;
+            });
+        }
+        this.updateMultiselectLabel(key);
+        this.applyFilters();
+    }
+
+    updateMultiselectLabel(key) {
+        const wrapper = document.querySelector(`.multiselect[data-filter="${key}"]`);
+        if (!wrapper) return;
+        const labelEl = wrapper.querySelector('.multiselect-label');
+        const trigger = wrapper.querySelector('.multiselect-trigger');
+        const selected = this.filters[key];
+        const defaults = { teacher: 'All Teachers', subject: 'All Subjects', student: 'All Students' };
+
+        if (selected.length === 0) {
+            labelEl.textContent = defaults[key];
+            trigger.classList.remove('has-selection');
+        } else if (selected.length <= 2) {
+            labelEl.textContent = selected.join(', ');
+            trigger.classList.add('has-selection');
+        } else {
+            labelEl.textContent = `${selected.length} selected`;
+            trigger.classList.add('has-selection');
+        }
+    }
+
+    toggleMultiselect(key) {
+        const wrapper = document.querySelector(`.multiselect[data-filter="${key}"]`);
+        if (!wrapper) return;
+        const isOpen = wrapper.classList.contains('open');
+        this.closeAllMultiselects();
+        if (!isOpen) {
+            wrapper.classList.add('open');
+        }
+    }
+
+    closeAllMultiselects() {
+        document.querySelectorAll('.multiselect.open').forEach(el => {
+            el.classList.remove('open');
         });
     }
 
@@ -469,6 +547,9 @@ class TimetableApp {
         this.filteredData = [];
         this.dataSlotTimes = {};
         this.slotTimeOverrides = {};
+        this.filters = { teacher: [], subject: [], student: [] };
+        ['teacher', 'subject', 'student'].forEach(key => this.updateMultiselectLabel(key));
+        this.closeAllMultiselects();
         
         // Clear timetable
         const container = document.getElementById('timetable-grid');
@@ -566,31 +647,33 @@ class TimetableApp {
 
     applyFilters() {
         this.filteredData = this.data.filter(row => {
-            // Handle teacher filter: check if selected teacher is in comma-separated teacher list
+            // Teacher: row matches if any selected teacher appears in its comma-separated list
             let teacherMatch = true;
-            if (this.filters.teacher) {
+            if (this.filters.teacher.length > 0) {
                 const teachers = row.Teacher.split(',').map(t => t.trim());
-                teacherMatch = teachers.includes(this.filters.teacher);
+                teacherMatch = this.filters.teacher.some(t => teachers.includes(t));
             }
-            
-            const subjectMatch = !this.filters.subject || row.Subject === this.filters.subject;
-            
-            // Handle student filter: "ALL" means all students, so it matches any student filter
+
+            const subjectMatch = this.filters.subject.length === 0
+                || this.filters.subject.includes(row.Subject);
+
+            // Student: "ALL" rows match any student selection; otherwise match by name
             let studentMatch = true;
-            if (this.filters.student) {
+            if (this.filters.student.length > 0) {
                 const studentsUpper = row.Students.toUpperCase().trim();
                 if (studentsUpper === 'ALL') {
-                    // If row has "ALL" students, it matches any student filter
                     studentMatch = true;
                 } else {
-                    // Otherwise, check if the student name is in the list
-                    studentMatch = row.Students.toLowerCase().includes(this.filters.student.toLowerCase());
+                    const rowStudents = row.Students.split(',').map(s => s.trim().toLowerCase());
+                    studentMatch = this.filters.student.some(s =>
+                        rowStudents.includes(s.toLowerCase())
+                    );
                 }
             }
 
             return teacherMatch && subjectMatch && studentMatch;
         });
-        
+
         this.renderTimetable();
     }
 
@@ -626,15 +709,15 @@ class TimetableApp {
     }
 
     getClassesForCell(day, slotId, dataRows) {
-        const classes = dataRows.filter(row => 
+        const classes = dataRows.filter(row =>
             row.Day === day && row.Slot === slotId
         );
 
         if (
             classes.length === 0 &&
-            this.filters.student &&
-            !this.filters.teacher &&
-            !this.filters.subject
+            this.filters.student.length === 1 &&
+            this.filters.teacher.length === 0 &&
+            this.filters.subject.length === 0
         ) {
             return [this.createStudyTimeClass(day, slotId)];
         }
@@ -650,7 +733,7 @@ class TimetableApp {
             Teacher: 'Indie',
             Code: `StudyTime_${day}_${slotId}`,
             Subject: 'StudyTime',
-            Students: this.filters.student,
+            Students: this.filters.student[0] || '',
             synthetic: true
         };
     }
@@ -788,9 +871,10 @@ class TimetableApp {
         }
         
         // Use filteredData if filters are applied, otherwise use all data
-        const dataToExport = (this.filters.teacher || this.filters.subject || this.filters.student) 
-            ? this.filteredData 
-            : this.data;
+        const hasFilters = this.filters.teacher.length > 0
+            || this.filters.subject.length > 0
+            || this.filters.student.length > 0;
+        const dataToExport = hasFilters ? this.filteredData : this.data;
         
         console.log('Exporting data:', dataToExport.length, 'rows');
         
@@ -842,14 +926,20 @@ class TimetableApp {
                 doc.setFont(undefined, 'bold');
                 
                 // Determine title based on filters
-                let titleText = '';
-                if (this.filters.teacher || this.filters.subject || this.filters.student) {
-                    if (this.filters.teacher) titleText += `Teacher | ${this.filters.teacher}`;
-                    if (this.filters.subject) titleText += (titleText ? '  ' : '') + `Subject | ${this.filters.subject}`;
-                    if (this.filters.student) titleText += (titleText ? '  ' : '') + `Student | ${this.filters.student}`;
-                } else {
-                    titleText = 'Full Timetable';
+                const parts = [];
+                if (this.filters.teacher.length > 0) {
+                    const label = this.filters.teacher.length > 1 ? 'Teachers' : 'Teacher';
+                    parts.push(`${label} | ${this.filters.teacher.join(', ')}`);
                 }
+                if (this.filters.subject.length > 0) {
+                    const label = this.filters.subject.length > 1 ? 'Subjects' : 'Subject';
+                    parts.push(`${label} | ${this.filters.subject.join(', ')}`);
+                }
+                if (this.filters.student.length > 0) {
+                    const label = this.filters.student.length > 1 ? 'Students' : 'Student';
+                    parts.push(`${label} | ${this.filters.student.join(', ')}`);
+                }
+                const titleText = parts.length > 0 ? parts.join('  ') : 'Full Timetable';
                 
                 doc.text(titleText, startX, margin + 8);
             }

@@ -238,6 +238,8 @@ body {
     align-items: center;
     flex-wrap: wrap;
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    z-index: 50;
 }
 
 .control-group {
@@ -291,6 +293,149 @@ body {
     justify-content: flex-end;
     /* Match the label height (approximately 1.2rem for 0.8rem font) + gap (0.25rem) = ~1.45rem */
     padding-top: 1.45rem;
+}
+
+.multiselect {
+    position: relative;
+}
+
+.multiselect-trigger {
+    padding: 0.5rem 0.8rem;
+    border: 2px solid #e1e5e9;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    transition: all 0.3s ease;
+    background: white;
+    color: #333;
+    min-width: 160px;
+    text-align: left;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+    background-size: 0.8rem;
+    padding-right: 2.2rem;
+}
+
+.multiselect-trigger:hover {
+    border-color: #667eea;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.multiselect-trigger:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.multiselect-trigger.has-selection {
+    border-color: #667eea;
+    color: #667eea;
+    font-weight: 500;
+}
+
+.multiselect.open .multiselect-trigger {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.multiselect-label {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.multiselect-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 200;
+    min-width: 100%;
+    max-width: 280px;
+    background: white;
+    border: 1px solid #e1e5e9;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    padding: 0.5rem;
+}
+
+.multiselect.open .multiselect-panel {
+    display: block;
+}
+
+.multiselect-panel-header {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.25rem 0.4rem 0.4rem;
+    border-bottom: 1px solid #f0f2f5;
+    margin-bottom: 0.4rem;
+}
+
+.btn-clear-filter {
+    background: none;
+    border: none;
+    color: #667eea;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.btn-clear-filter:hover {
+    color: #5a6fd8;
+    text-decoration: underline;
+}
+
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #333;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s ease;
+}
+
+.checkbox-item:hover {
+    background: #f1f3f5;
+}
+
+.checkbox-item input[type="checkbox"] {
+    appearance: auto;
+    -webkit-appearance: auto;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: none;
+    background-image: none;
+    accent-color: #667eea;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.checkbox-item:has(input:checked) {
+    background: rgba(102, 126, 234, 0.1);
+    color: #667eea;
+    font-weight: 500;
 }
 
 .btn {

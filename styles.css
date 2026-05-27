@@ -548,6 +548,31 @@ body {
     padding: 0.5rem;
 }
 
+.grid-cell.break-time-slot {
+    min-height: 56px;
+    background: #6c757d;
+}
+
+.grid-cell.break-row {
+    min-height: 56px;
+    background: #f1f3f5;
+    border-left: 4px solid #adb5bd;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+}
+
+.break-label {
+    color: #495057;
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.break-time {
+    color: #6c757d;
+    font-size: 0.8rem;
+}
+
 .slot-number {
     font-size: 0.9rem;
     font-weight: 700;

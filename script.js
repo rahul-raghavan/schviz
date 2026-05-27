@@ -11,6 +11,7 @@ class TimetableApp {
 
         this.dataSlotTimes = {};
         this.slotTimeOverrides = {};
+        this.breaks = [];
         
         this.init();
     }
@@ -30,12 +31,12 @@ class TimetableApp {
             const csvText = await response.text();
             console.log('CSV loaded successfully, length:', csvText.length);
             const parsed = this.parseTimetableFile(csvText, 'relaxed_timetable - 22oct.csv');
-            this.setTimetableData(parsed.rows, parsed.slotTimes);
+            this.setTimetableData(parsed.rows, parsed.slotTimes, parsed.breaks);
             console.log('Parsed data:', this.data.length, 'rows');
         } catch (error) {
             console.error('Error loading data:', error);
             // Fallback: use the actual CSV data embedded
-            this.setTimetableData(this.getFullData(), {});
+            this.setTimetableData(this.getFullData(), {}, []);
         }
     }
 
@@ -47,7 +48,8 @@ class TimetableApp {
         const rows = this.parseCSV(fileText);
         return {
             rows: this.normalizeTimetableRows(rows),
-            slotTimes: this.extractSlotTimes(rows)
+            slotTimes: this.extractSlotTimes(rows),
+            breaks: this.extractBreaks(rows)
         };
     }
 
@@ -74,6 +76,7 @@ class TimetableApp {
         const payload = JSON.parse(jsonText);
         const entries = Array.isArray(payload) ? payload : (payload.entries || []);
         const slotTimes = this.normalizeSlotTimes(payload.slotTimes || {});
+        const breaks = Array.isArray(payload) ? [] : this.normalizeBreaks(payload.breaks || []);
 
         return {
             rows: entries.map(entry => {
@@ -93,7 +96,8 @@ class TimetableApp {
                     StartTime: slotTimes[slot] || ''
                 };
             }),
-            slotTimes
+            slotTimes,
+            breaks
         };
     }
 
@@ -129,6 +133,18 @@ class TimetableApp {
         return slotTimes;
     }
 
+    extractBreaks(rows) {
+        return this.normalizeBreaks(
+            rows
+                .filter(row => (row.RowType || '').trim().toLowerCase() === 'break')
+                .map(row => ({
+                    afterSlot: row.AfterSlot || row.afterSlot || row.Slot,
+                    label: row.Label || row.Name || row.Title || row.Subject,
+                    time: row.Time || row.StartTime || row.SlotTime
+                }))
+        );
+    }
+
     normalizeSlotTimes(slotTimes) {
         return Object.entries(slotTimes).reduce((normalized, [slot, time]) => {
             const slotId = String(slot).trim();
@@ -140,10 +156,58 @@ class TimetableApp {
         }, {});
     }
 
-    setTimetableData(rows, slotTimes) {
+    normalizeBreaks(breaks) {
+        return breaks
+            .map((breakItem, index) => {
+                const afterSlot = String(
+                    breakItem.afterSlot ??
+                    breakItem.after_slot ??
+                    breakItem.after ??
+                    breakItem.slotAfter ??
+                    breakItem.slot ??
+                    ''
+                ).trim();
+
+                if (!afterSlot) return null;
+
+                const label = String(
+                    breakItem.label ??
+                    breakItem.name ??
+                    breakItem.title ??
+                    'Break'
+                ).trim() || 'Break';
+
+                const time = String(
+                    breakItem.time ??
+                    breakItem.Time ??
+                    breakItem.startTime ??
+                    breakItem.StartTime ??
+                    ''
+                ).trim();
+
+                return {
+                    id: `break-${afterSlot}-${index}`,
+                    afterSlot,
+                    label,
+                    time,
+                    order: index
+                };
+            })
+            .filter(Boolean)
+            .sort((a, b) => {
+                const slotDelta = Number(a.afterSlot) - Number(b.afterSlot);
+                if (!Number.isNaN(slotDelta) && slotDelta !== 0) {
+                    return slotDelta;
+                }
+                return a.order - b.order;
+            });
+    }
+
+    setTimetableData(rows, slotTimes, breaks = []) {
         this.data = rows;
         this.filteredData = [...rows];
         this.dataSlotTimes = this.normalizeSlotTimes(slotTimes);
+        this.breaks = this.normalizeBreaks(breaks);
         this.slotTimeOverrides = {};
     }
 
@@ -504,7 +568,7 @@ class TimetableApp {
             try {
                 const fileText = e.target.result;
                 const parsed = this.parseTimetableFile(fileText, file.name);
-                this.setTimetableData(parsed.rows, parsed.slotTimes);
+                this.setTimetableData(parsed.rows, parsed.slotTimes, parsed.breaks);
                 
                 // Show controls and render timetable
                 this.showControls();
@@ -547,6 +611,7 @@ class TimetableApp {
         this.filteredData = [];
         this.dataSlotTimes = {};
         this.slotTimeOverrides = {};
+        this.breaks = [];
         this.filters = { teacher: [], subject: [], student: [] };
         ['teacher', 'subject', 'student'].forEach(key => this.updateMultiselectLabel(key));
         this.closeAllMultiselects();
@@ -708,6 +773,21 @@ class TimetableApp {
         return this.dataSlotTimes[id] || '';
     }
 
+    getBreaksAfterSlot(slotId) {
+        return this.breaks.filter(breakItem => breakItem.afterSlot === String(slotId));
+    }
+
+    getScheduleRows() {
+        const rows = [];
+        this.getSlotsFromData().forEach(slot => {
+            rows.push({ type: 'slot', slot });
+            this.getBreaksAfterSlot(slot.id).forEach(breakItem => {
+                rows.push({ type: 'break', breakItem });
+            });
+        });
+        return rows;
+    }
+
     getClassesForCell(day, slotId, dataRows) {
         const classes = dataRows.filter(row =>
             row.Day === day && row.Slot === slotId
@@ -725,7 +805,7 @@ class TimetableApp {
         return classes;
     }
 
-    createStudyTimeClass(day, slotId) {
+    createStudyTimeClass(day, slotId, studentName = this.filters.student[0] || '') {
         return {
             Day: day,
             Slot: slotId,
@@ -733,22 +813,40 @@ class TimetableApp {
             Teacher: 'Indie',
             Code: `StudyTime_${day}_${slotId}`,
             Subject: 'StudyTime',
-            Students: this.filters.student[0] || '',
+            Students: studentName,
             synthetic: true
         };
     }
 
+    splitList(value) {
+        return String(value || '').split(',').map(item => item.trim()).filter(Boolean);
+    }
+
+    rowMatchesTeacher(row, teacherName) {
+        return this.splitList(row.Teacher).includes(teacherName);
+    }
+
+    rowMatchesStudent(row, studentName) {
+        const studentsText = String(row.Students || '').trim();
+        if (studentsText.toUpperCase() === 'ALL') {
+            return true;
+        }
+
+        return this.splitList(studentsText)
+            .some(student => student.toLowerCase() === studentName.toLowerCase());
+    }
+
     formatTeacher(cls) {
-        const teachers = cls.Teacher.split(',').map(t => t.trim()).filter(t => t);
+        const teachers = this.splitList(cls.Teacher);
         return teachers.length > 1 ? teachers.join(' & ') : (teachers[0] || cls.Teacher);
     }
 
     formatStudents(cls) {
-        if (cls.Students.toUpperCase().trim() === 'ALL') {
+        if (String(cls.Students || '').toUpperCase().trim() === 'ALL') {
             return 'All Students';
         }
 
-        return cls.Students.split(',').map(name => name.trim()).filter(Boolean).join(', ');
+        return this.splitList(cls.Students).join(', ');
     }
 
     getSubjectClass(subject) {
@@ -776,8 +874,7 @@ class TimetableApp {
         container.innerHTML = '';
 
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-        // Dynamically determine slots from data (no limit - based on CSV)
-        const slots = this.getSlotsFromData();
+        const scheduleRows = this.getScheduleRows();
 
         // Create header row with days
         const headerRow = document.createElement('div');
@@ -792,8 +889,13 @@ class TimetableApp {
             container.appendChild(header);
         });
 
-        // Create rows for each time slot
-        slots.forEach(slot => {
+        scheduleRows.forEach(row => {
+            if (row.type === 'break') {
+                this.renderBreakRow(container, row.breakItem);
+                return;
+            }
+
+            const slot = row.slot;
             // Time slot label (first column of each row)
             const timeCell = document.createElement('div');
             timeCell.className = 'grid-cell time-slot';
@@ -822,6 +924,25 @@ class TimetableApp {
                 container.appendChild(cell);
             });
         });
+    }
+
+    renderBreakRow(container, breakItem) {
+        const timeCell = document.createElement('div');
+        timeCell.className = 'grid-cell time-slot break-time-slot';
+        timeCell.innerHTML = `
+            <div class="slot-number">Break</div>
+            ${breakItem.time ? `<div class="slot-time">${breakItem.time}</div>` : ''}
+        `;
+        container.appendChild(timeCell);
+
+        const breakCell = document.createElement('div');
+        breakCell.className = 'grid-cell break-row';
+        breakCell.style.gridColumn = 'span 5';
+        breakCell.innerHTML = `
+            <div class="break-label">${breakItem.label}</div>
+            ${breakItem.time ? `<div class="break-time">${breakItem.time}</div>` : ''}
+        `;
+        container.appendChild(breakCell);
     }
 
 
@@ -861,183 +982,220 @@ class TimetableApp {
     }
 
     exportToPDF() {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF('landscape', 'mm', 'a4');
-        
-        // Ensure we have data to export
         if (!this.data || this.data.length === 0) {
             alert('No data available to export. Please upload a timetable file first.');
             return;
         }
-        
-        // Use filteredData if filters are applied, otherwise use all data
-        const hasFilters = this.filters.teacher.length > 0
-            || this.filters.subject.length > 0
-            || this.filters.student.length > 0;
-        const dataToExport = hasFilters ? this.filteredData : this.data;
-        
-        console.log('Exporting data:', dataToExport.length, 'rows');
-        
-        // Get page dimensions
+
+        const person = this.getSelectedPdfPerson();
+        if (!person) return;
+
+        this.renderPersonPdf(person);
+    }
+
+    getSelectedPdfPerson() {
+        const teacherCount = this.filters.teacher.length;
+        const studentCount = this.filters.student.length;
+        const subjectCount = this.filters.subject.length;
+
+        if (subjectCount > 0) {
+            alert('Clear the subject filter before saving a single-person PDF.');
+            return null;
+        }
+
+        if (teacherCount === 1 && studentCount === 0) {
+            return { type: 'teacher', name: this.filters.teacher[0] };
+        }
+
+        if (studentCount === 1 && teacherCount === 0) {
+            return { type: 'student', name: this.filters.student[0] };
+        }
+
+        if (teacherCount === 0 && studentCount === 0) {
+            alert('Select exactly one teacher or one student before saving a PDF.');
+            return null;
+        }
+
+        if (teacherCount > 0 && studentCount > 0) {
+            alert('PDF export supports either one teacher or one student, not both. Clear one filter and try again.');
+            return null;
+        }
+
+        alert('PDF export supports one person at a time. Select exactly one teacher or exactly one student.');
+        return null;
+    }
+
+    getClassesForPdfCell(person, day, slotId) {
+        const classes = this.data.filter(row => {
+            if (row.Day !== day || row.Slot !== slotId) return false;
+            if (person.type === 'teacher') {
+                return this.rowMatchesTeacher(row, person.name);
+            }
+            return this.rowMatchesStudent(row, person.name);
+        });
+
+        if (classes.length === 0 && person.type === 'student') {
+            return [this.createStudyTimeClass(day, slotId, person.name)];
+        }
+
+        return classes;
+    }
+
+    renderPersonPdf(person) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('landscape', 'mm', 'a4');
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
-        
-        // Create the timetable grid - use full page
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-        // Get all slots dynamically from data (same as UI)
-        const allSlots = this.getSlotsFromData();
-        
-        // Split slots into pages dynamically: 4 slots per page
-        // Using 4 slots per page gives more row height to accommodate multiple teachers and many students
-        const slotsPerPage = 4;
-        
-        // Dynamically split slots into pages
-        const slotPages = [];
-        for (let i = 0; i < allSlots.length; i += slotsPerPage) {
-            slotPages.push(allSlots.slice(i, i + slotsPerPage));
+        const scheduleRows = this.getScheduleRows();
+        const slotRowCount = scheduleRows.filter(row => row.type === 'slot').length;
+        const breakRowCount = scheduleRows.length - slotRowCount;
+
+        if (slotRowCount === 0) {
+            alert('No slots found in the uploaded timetable.');
+            return;
         }
-        
-        // Calculate optimal dimensions for full page
-        // Use fixed 4 slots per page to maintain consistent row widths and provide more height
+
         const margin = 10;
-        const titleHeight = 15; // Space for title
-        const timeColumnWidth = 25;
+        const titleHeight = 13;
+        const timeColumnWidth = 22;
         const availableWidth = pageWidth - (2 * margin) - timeColumnWidth;
         const cellWidth = availableWidth / days.length;
-        const headerHeight = 8;
-        // Calculate cellHeight based on 4 slots per page for taller rows (better for multiple teachers/students)
-        const cellHeight = (pageHeight - (2 * margin) - titleHeight - headerHeight) / (slotsPerPage + 1);
-        
-        // Helper function to render a page of slots
-        const renderPage = (slots, isFirstPage) => {
-            if (slots.length === 0) return;
-            
-            // Add new page if not the first page
-            if (!isFirstPage) {
-                doc.addPage();
-            }
-            
-            const startX = margin;
-            const startY = margin + titleHeight;
-            
-            // Add title with filters (only on first page)
-            if (isFirstPage) {
-                doc.setFontSize(14);
-                doc.setFont(undefined, 'bold');
-                
-                // Determine title based on filters
-                const parts = [];
-                if (this.filters.teacher.length > 0) {
-                    const label = this.filters.teacher.length > 1 ? 'Teachers' : 'Teacher';
-                    parts.push(`${label} | ${this.filters.teacher.join(', ')}`);
-                }
-                if (this.filters.subject.length > 0) {
-                    const label = this.filters.subject.length > 1 ? 'Subjects' : 'Subject';
-                    parts.push(`${label} | ${this.filters.subject.join(', ')}`);
-                }
-                if (this.filters.student.length > 0) {
-                    const label = this.filters.student.length > 1 ? 'Students' : 'Student';
-                    parts.push(`${label} | ${this.filters.student.join(', ')}`);
-                }
-                const titleText = parts.length > 0 ? parts.join('  ') : 'Full Timetable';
-                
-                doc.text(titleText, startX, margin + 8);
-            }
-            
-            // Draw grid lines
-            doc.setLineWidth(0.2);
-            
-            // Draw horizontal lines
-            for (let i = 0; i <= slots.length + 1; i++) {
-                let y;
-                if (i === 0) {
-                    y = startY; // First line at startY
-                } else if (i === 1) {
-                    y = startY + headerHeight; // Header row uses smaller height
-                } else {
-                    y = startY + headerHeight + ((i - 1) * cellHeight); // Regular rows
-                }
-                doc.line(startX, y, startX + timeColumnWidth + (days.length * cellWidth), y);
-            }
-            
-            // Draw vertical lines
-            for (let i = 0; i <= days.length + 1; i++) {
-                const x = startX + (i === 0 ? 0 : timeColumnWidth + (i - 1) * cellWidth);
-                doc.line(x, startY, x, startY + headerHeight + (slots.length * cellHeight));
-            }
-            
-            // Add headers
-            doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
-            doc.text('Time/Day', startX + 2, startY + 6);
-            
-            days.forEach((day, index) => {
-                const x = startX + timeColumnWidth + (index * cellWidth) + (cellWidth / 2);
-                doc.text(day, x, startY + 6, { align: 'center' });
-            });
-            
-            // Add time slots and classes
-            slots.forEach((slot, slotIndex) => {
-                const rowY = startY + headerHeight + (slotIndex * cellHeight);
-                
-                // Add time slot info (Slot number and time)
-                doc.setFontSize(9);
-                doc.setFont(undefined, 'bold');
-                doc.text(`Slot ${slot.id}`, startX + 2, rowY + 6);
-                if (slot.time) {
-                    doc.setFont(undefined, 'normal');
-                    doc.setFontSize(8);
-                    doc.text(slot.time, startX + 2, rowY + 11);
-                }
-                
-                // Add classes for each day
-                days.forEach((day, dayIndex) => {
-                    const classes = this.getClassesForCell(day, slot.id, dataToExport);
-                    
-                    const cellX = startX + timeColumnWidth + (dayIndex * cellWidth);
-                    const cellCenterX = cellX + (cellWidth / 2);
-                    
-                    if (classes.length > 0) {
-                        classes.forEach((cls, clsIndex) => {
-                            // Increased spacing with taller rows: 16 units per class entry
-                            // Each entry needs: teacher/subject line + spacing + student line
-                            const yOffset = clsIndex * 16; // Increased from 14 to 16 for better spacing
-                            // With taller rows (4 slots per page), we have more room for multiple classes
-                            if (yOffset < cellHeight - 12) { // Increased margin from 10 to 12
-                                // Teacher and Subject
-                                doc.setFontSize(8);
-                                doc.setFont(undefined, 'bold');
-                                const teacherSubject = `${this.formatTeacher(cls)} | ${cls.Subject}`;
-                                doc.text(teacherSubject, cellCenterX, rowY + 6 + yOffset, { 
-                                    align: 'center',
-                                    maxWidth: cellWidth - 3
-                                });
-                                
-                                // Students - always show with more spacing from teacher line
-                                doc.setFontSize(6);
-                                doc.setFont(undefined, 'normal');
-                                const capitalizedStudents = this.formatStudents(cls);
-                                
-                                // Increased spacing between teacher/subject and students (from 10 to 11)
-                                doc.text(capitalizedStudents, cellCenterX, rowY + 11 + yOffset, { 
-                                    align: 'center',
-                                    maxWidth: cellWidth - 3
-                                });
-                            }
-                        });
-                    }
-                    // Leave empty cells blank - no "Free" text
-                });
-            });
-        };
-        
-        // Render all pages dynamically
-        slotPages.forEach((pageSlots, pageIndex) => {
-            renderPage(pageSlots, pageIndex === 0);
+        const headerHeight = 9;
+        const startX = margin;
+        const startY = margin + titleHeight;
+        const availableGridHeight = pageHeight - startY - margin - headerHeight;
+        let breakRowHeight = breakRowCount > 0 ? 7.5 : 0;
+        let slotRowHeight = (availableGridHeight - (breakRowCount * breakRowHeight)) / slotRowCount;
+        if (slotRowHeight < 10) {
+            breakRowHeight = availableGridHeight / scheduleRows.length;
+            slotRowHeight = breakRowHeight;
+        }
+        const titleText = `PEP Schoolv2 | Middle School | ${person.name}`;
+
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.text(titleText, startX, margin + 7);
+
+        doc.setDrawColor(120);
+        doc.setLineWidth(0.2);
+
+        doc.setFillColor(238, 242, 247);
+        doc.rect(startX, startY, timeColumnWidth, headerHeight, 'FD');
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        doc.text('Time/Day', startX + 2, startY + 6);
+
+        days.forEach((day, index) => {
+            const cellX = startX + timeColumnWidth + (index * cellWidth);
+            doc.setFillColor(238, 242, 247);
+            doc.rect(cellX, startY, cellWidth, headerHeight, 'FD');
+            doc.text(day, cellX + (cellWidth / 2), startY + 6, { align: 'center' });
         });
-        
-        // Save the PDF
-        doc.save('timetable.pdf');
+
+        let rowY = startY + headerHeight;
+        scheduleRows.forEach(row => {
+            const rowHeight = row.type === 'break' ? breakRowHeight : slotRowHeight;
+
+            if (row.type === 'break') {
+                this.renderPdfBreakRow(doc, row.breakItem, startX, rowY, timeColumnWidth, days.length * cellWidth, rowHeight);
+                rowY += rowHeight;
+                return;
+            }
+
+            const slot = row.slot;
+            const slotLabel = slot.time ? `Slot ${slot.id} · ${slot.time}` : `Slot ${slot.id}`;
+
+            doc.rect(startX, rowY, timeColumnWidth, rowHeight);
+            doc.setFontSize(7.8);
+            doc.setFont(undefined, 'bold');
+            this.drawWrappedPdfText(doc, slotLabel, startX + 1.5, rowY + 5, timeColumnWidth - 3, 2, 3.2);
+
+            days.forEach((day, dayIndex) => {
+                const cellX = startX + timeColumnWidth + (dayIndex * cellWidth);
+                doc.rect(cellX, rowY, cellWidth, rowHeight);
+                const classes = this.getClassesForPdfCell(person, day, slot.id);
+                this.renderPdfCell(doc, person, classes, cellX, rowY, cellWidth, rowHeight);
+            });
+
+            rowY += rowHeight;
+        });
+
+        doc.save(`${this.toPdfFilename(person.name)}.pdf`);
+    }
+
+    renderPdfBreakRow(doc, breakItem, startX, rowY, timeColumnWidth, dayAreaWidth, rowHeight) {
+        doc.setFillColor(246, 248, 251);
+        doc.rect(startX, rowY, timeColumnWidth, rowHeight, 'FD');
+        doc.rect(startX + timeColumnWidth, rowY, dayAreaWidth, rowHeight, 'FD');
+
+        doc.setFontSize(7);
+        doc.setFont(undefined, 'bold');
+        doc.text('Break', startX + 1.5, rowY + 4.8);
+
+        const label = breakItem.time ? `${breakItem.label} · ${breakItem.time}` : breakItem.label;
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'bold');
+        doc.text(label, startX + timeColumnWidth + (dayAreaWidth / 2), rowY + 4.8, { align: 'center' });
+    }
+
+    renderPdfCell(doc, person, classes, cellX, cellY, cellWidth, cellHeight) {
+        const padding = 2;
+        const maxWidth = cellWidth - (padding * 2);
+        const lineHeight = 3.2;
+        let cursorY = cellY + 4.4;
+        const bottomY = cellY + cellHeight - 1.5;
+
+        classes.forEach(cls => {
+            if (cursorY >= bottomY) return;
+
+            if (person.type === 'student') {
+                doc.setFontSize(7);
+                doc.setFont(undefined, 'bold');
+                const label = `${this.formatTeacher(cls)} | ${cls.Subject}`;
+                const remainingLines = Math.max(1, Math.floor((bottomY - cursorY) / lineHeight));
+                cursorY = this.drawWrappedPdfText(doc, label, cellX + padding, cursorY, maxWidth, remainingLines, lineHeight);
+                cursorY += 1.2;
+                return;
+            }
+
+            doc.setFontSize(7);
+            doc.setFont(undefined, 'bold');
+            cursorY = this.drawWrappedPdfText(doc, cls.Subject, cellX + padding, cursorY, maxWidth, 1, lineHeight);
+
+            if (cursorY >= bottomY) return;
+            doc.setFontSize(5.8);
+            doc.setFont(undefined, 'normal');
+            const students = this.formatStudents(cls);
+            const remainingLines = Math.max(1, Math.floor((bottomY - cursorY) / 2.8));
+            cursorY = this.drawWrappedPdfText(doc, students, cellX + padding, cursorY, maxWidth, remainingLines, 2.8);
+            cursorY += 1.2;
+        });
+    }
+
+    drawWrappedPdfText(doc, text, x, y, maxWidth, maxLines, lineHeight) {
+        if (maxLines <= 0) return y;
+
+        let lines = doc.splitTextToSize(String(text || ''), maxWidth);
+        if (lines.length > maxLines) {
+            lines = lines.slice(0, maxLines);
+            lines[lines.length - 1] = `${lines[lines.length - 1].replace(/\.*$/, '')}...`;
+        }
+
+        lines.forEach((line, index) => {
+            doc.text(line, x, y + (index * lineHeight));
+        });
+
+        return y + (lines.length * lineHeight);
+    }
+
+    toPdfFilename(name) {
+        const safeName = String(name || 'person')
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'person';
+        return `pep-middle-school-${safeName}-timetable`;
     }
 }
 

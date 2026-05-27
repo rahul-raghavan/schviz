@@ -30,7 +30,24 @@ Mon,1,1,Sanya,Sanya_2,Math,"Nithil, Aakash, Nuha, Karthika",9:00
 Mon,1,2,Usha,Usha_2,Math,"Aashmi, Arhan, Trisha, Vedaant, Kanav",9:00
 ```
 
-Solver JSON exports are also supported when they include an `entries` array and optional `slotTimes` object.
+Solver JSON exports are also supported when they include an `entries` array and optional `slotTimes` object. They may also include optional break rows:
+
+```json
+{
+  "slotTimes": {
+    "1": "9:00",
+    "2": "9:35"
+  },
+  "breaks": [
+    {
+      "afterSlot": 2,
+      "label": "Snack Break",
+      "time": "10:10 - 10:20"
+    }
+  ],
+  "entries": []
+}
+```
 
 ## Deployment Options
 

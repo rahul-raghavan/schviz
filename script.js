@@ -1166,6 +1166,10 @@ class TimetableApp {
     }
 
     buildPdfDocument(person) {
+        if (person.type === 'class') {
+            return this.buildWholeClassPdfDocument(person);
+        }
+
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('landscape', 'mm', 'a4');
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -1246,6 +1250,133 @@ class TimetableApp {
         });
 
         return doc;
+    }
+
+
+    buildWholeClassPdfDocument(person) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('landscape', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        const scheduleRows = this.getScheduleRows();
+        const slotRowCount = scheduleRows.filter(row => row.type === 'slot').length;
+
+        if (slotRowCount === 0) {
+            alert('No slots found in the uploaded timetable.');
+            return;
+        }
+
+        const metrics = {
+            margin: 8,
+            titleHeight: 12,
+            timeColumnWidth: 23,
+            headerHeight: 9,
+            breakRowHeight: 7.5,
+            minSlotRowHeight: 16,
+            classBlockHeight: 8.2,
+        };
+        metrics.startX = metrics.margin;
+        metrics.startY = metrics.margin + metrics.titleHeight;
+        metrics.availableWidth = pageWidth - (2 * metrics.margin) - metrics.timeColumnWidth;
+        metrics.cellWidth = metrics.availableWidth / days.length;
+        metrics.pageBottom = pageHeight - metrics.margin;
+        metrics.dayAreaWidth = days.length * metrics.cellWidth;
+        const titleText = `PEP Schoolv2 | ${person.name}`;
+
+        let pageNumber = 1;
+        let rowY = this.renderWholeClassPdfHeader(doc, titleText, days, metrics, pageNumber);
+
+        scheduleRows.forEach(row => {
+            const rowHeight = this.getWholeClassPdfRowHeight(row, person, days, metrics);
+            if (rowY + rowHeight > metrics.pageBottom) {
+                doc.addPage();
+                pageNumber += 1;
+                rowY = this.renderWholeClassPdfHeader(doc, `${titleText} (continued)`, days, metrics, pageNumber);
+            }
+
+            if (row.type === 'break') {
+                this.renderPdfBreakRow(doc, row.breakItem, metrics.startX, rowY, metrics.timeColumnWidth, metrics.dayAreaWidth, rowHeight);
+                rowY += rowHeight;
+                return;
+            }
+
+            const slot = row.slot;
+            const slotLabel = slot.time ? `Slot ${slot.id} · ${slot.time}` : `Slot ${slot.id}`;
+            doc.rect(metrics.startX, rowY, metrics.timeColumnWidth, rowHeight);
+            doc.setFontSize(7.4);
+            doc.setFont(undefined, 'bold');
+            this.drawWrappedPdfText(doc, slotLabel, metrics.startX + 1.5, rowY + 5, metrics.timeColumnWidth - 3, 2, 3.2);
+
+            days.forEach((day, dayIndex) => {
+                const cellX = metrics.startX + metrics.timeColumnWidth + (dayIndex * metrics.cellWidth);
+                doc.rect(cellX, rowY, metrics.cellWidth, rowHeight);
+                const classes = this.getClassesForPdfCell(person, day, slot.id);
+                this.renderWholeClassPdfCell(doc, classes, cellX, rowY, metrics.cellWidth, rowHeight);
+            });
+
+            rowY += rowHeight;
+        });
+
+        return doc;
+    }
+
+    renderWholeClassPdfHeader(doc, titleText, days, metrics, pageNumber) {
+        doc.setFontSize(13);
+        doc.setFont(undefined, 'bold');
+        doc.text(titleText, metrics.startX, metrics.margin + 7);
+        doc.setFontSize(7);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Page ${pageNumber}`, doc.internal.pageSize.getWidth() - metrics.margin, metrics.margin + 7, { align: 'right' });
+
+        doc.setDrawColor(120);
+        doc.setLineWidth(0.2);
+        doc.setFillColor(238, 242, 247);
+        doc.rect(metrics.startX, metrics.startY, metrics.timeColumnWidth, metrics.headerHeight, 'FD');
+        doc.setFontSize(8.5);
+        doc.setFont(undefined, 'bold');
+        doc.text('Time/Day', metrics.startX + 2, metrics.startY + 6);
+
+        days.forEach((day, index) => {
+            const cellX = metrics.startX + metrics.timeColumnWidth + (index * metrics.cellWidth);
+            doc.setFillColor(238, 242, 247);
+            doc.rect(cellX, metrics.startY, metrics.cellWidth, metrics.headerHeight, 'FD');
+            doc.text(day, cellX + (metrics.cellWidth / 2), metrics.startY + 6, { align: 'center' });
+        });
+
+        return metrics.startY + metrics.headerHeight;
+    }
+
+    getWholeClassPdfRowHeight(row, person, days, metrics) {
+        if (row.type === 'break') return metrics.breakRowHeight;
+
+        const maxClasses = Math.max(...days.map(day => this.getClassesForPdfCell(person, day, row.slot.id).length), 1);
+        return Math.max(metrics.minSlotRowHeight, 4 + (maxClasses * metrics.classBlockHeight));
+    }
+
+    renderWholeClassPdfCell(doc, classes, cellX, cellY, cellWidth, cellHeight) {
+        const padding = 2;
+        const maxWidth = cellWidth - (padding * 2);
+        const blockHeight = 8.2;
+        let cursorY = cellY + 4;
+        const bottomY = cellY + cellHeight - 1.5;
+
+        classes.forEach((cls, index) => {
+            if (cursorY + 3 > bottomY) return;
+
+            doc.setFontSize(6.4);
+            doc.setFont(undefined, 'bold');
+            cursorY = this.drawWrappedPdfText(doc, this.getClassTitle(cls), cellX + padding, cursorY, maxWidth, 1, 3);
+
+            const students = this.formatStudents(cls);
+            if (students && cursorY + 2.8 <= bottomY) {
+                doc.setFontSize(5.1);
+                doc.setFont(undefined, 'normal');
+                cursorY = this.drawWrappedPdfText(doc, students, cellX + padding, cursorY + 0.4, maxWidth, 1, 2.8);
+            }
+
+            cursorY = Math.max(cursorY + 1, cellY + 4 + ((index + 1) * blockHeight));
+        });
     }
 
     renderPdfBreakRow(doc, breakItem, startX, rowY, timeColumnWidth, dayAreaWidth, rowHeight) {

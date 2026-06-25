@@ -85,11 +85,17 @@ class TimetableApp {
                     ? entry.students.join(', ')
                     : String(entry.students ?? entry.Students ?? '');
 
+                const teacher = String(entry.teacher ?? entry.Teacher ?? '');
+                const teachersList = Array.isArray(entry.teachers)
+                    ? entry.teachers.join(', ')
+                    : String(entry.teachers ?? entry.Teachers ?? teacher);
+
                 return {
                     Day: String(entry.day ?? entry.Day ?? ''),
                     Slot: slot,
                     Track: String(entry.track ?? entry.Track ?? ''),
-                    Teacher: String(entry.teacher ?? entry.Teacher ?? ''),
+                    Teacher: teacher,
+                    TeachersList: teachersList,
                     Code: String(entry.code ?? entry.Code ?? ''),
                     Subject: String(entry.subject ?? entry.Subject ?? ''),
                     Students: students,
@@ -403,6 +409,13 @@ class TimetableApp {
             });
         }
 
+        const bulkPdfExportBtn = document.getElementById('bulk-pdf-export-btn');
+        if (bulkPdfExportBtn) {
+            bulkPdfExportBtn.addEventListener('click', () => {
+                this.exportAllPDFs();
+            });
+        }
+
         // Slot times editor
         const editTimesBtn = document.getElementById('edit-times-btn');
         const closeTimesEditor = document.getElementById('close-times-editor');
@@ -428,15 +441,10 @@ class TimetableApp {
     }
 
     populateFilters() {
-        // Extract individual teachers from comma-separated teacher lists
+        // Extract individual teachers from teacher lists, including JSON `teachers` arrays.
         const allTeachers = new Set();
         this.data.forEach(row => {
-            row.Teacher.split(',').forEach(teacher => {
-                const trimmed = teacher.trim();
-                if (trimmed) {
-                    allTeachers.add(trimmed);
-                }
-            });
+            this.getRowTeachers(row).forEach(teacher => allTeachers.add(teacher));
         });
         const teachers = Array.from(allTeachers).sort();
         
@@ -706,8 +714,12 @@ class TimetableApp {
     showControls() {
         const controls = document.getElementById('controls');
         const pdfExportBtn = document.getElementById('pdf-export-btn');
+        const bulkPdfExportBtn = document.getElementById('bulk-pdf-export-btn');
         controls.style.display = 'flex';
         pdfExportBtn.style.display = 'inline-flex';
+        if (bulkPdfExportBtn) {
+            bulkPdfExportBtn.style.display = 'inline-flex';
+        }
     }
 
     applyFilters() {
@@ -715,7 +727,7 @@ class TimetableApp {
             // Teacher: row matches if any selected teacher appears in its comma-separated list
             let teacherMatch = true;
             if (this.filters.teacher.length > 0) {
-                const teachers = row.Teacher.split(',').map(t => t.trim());
+                const teachers = this.getRowTeachers(row);
                 teacherMatch = this.filters.teacher.some(t => teachers.includes(t));
             }
 
@@ -812,7 +824,7 @@ class TimetableApp {
             Track: '',
             Teacher: 'Indie',
             Code: `StudyTime_${day}_${slotId}`,
-            Subject: 'StudyTime',
+            Subject: '', 
             Students: studentName,
             synthetic: true
         };
@@ -822,8 +834,22 @@ class TimetableApp {
         return String(value || '').split(',').map(item => item.trim()).filter(Boolean);
     }
 
+    getRowTeachers(row) {
+        const teacherText = String(row.TeachersList || row.Teacher || '');
+        return teacherText
+            .split(/\s*(?:,|\+|\/|&)\s*/)
+            .map(teacher => teacher.trim())
+            .filter(teacher => teacher && !['ALL', 'SELF', 'INDIE'].includes(teacher.toUpperCase()));
+    }
+
+    getClassTitle(cls) {
+        const teacher = this.formatTeacher(cls);
+        const subject = String(cls.Subject || '').trim();
+        return subject ? `${teacher} | ${subject}` : teacher;
+    }
+
     rowMatchesTeacher(row, teacherName) {
-        return this.splitList(row.Teacher).includes(teacherName);
+        return this.getRowTeachers(row).includes(teacherName);
     }
 
     rowMatchesStudent(row, studentName) {
@@ -862,7 +888,7 @@ class TimetableApp {
         classDiv.classList.add(this.getSubjectClass(cls.Subject));
 
         classDiv.innerHTML = `
-            <div class="class-teacher">${this.formatTeacher(cls)} | ${cls.Subject}</div>
+            <div class="class-teacher">${this.getClassTitle(cls)}</div>
             <div class="class-students">${this.formatStudents(cls)}</div>
         `;
 
@@ -1028,6 +1054,7 @@ class TimetableApp {
     getClassesForPdfCell(person, day, slotId) {
         const classes = this.data.filter(row => {
             if (row.Day !== day || row.Slot !== slotId) return false;
+            if (person.type === 'class') return true;
             if (person.type === 'teacher') {
                 return this.rowMatchesTeacher(row, person.name);
             }
@@ -1042,6 +1069,103 @@ class TimetableApp {
     }
 
     renderPersonPdf(person) {
+        const doc = this.buildPdfDocument(person);
+        if (doc) {
+            doc.save(`${this.toPdfFilename(person.name)}.pdf`);
+        }
+    }
+
+    async exportAllPDFs() {
+        if (!this.data || this.data.length === 0) {
+            alert('No data available to export. Please upload a timetable file first.');
+            return;
+        }
+
+        if (!window.JSZip) {
+            alert('Bulk PDF export is still loading. Please wait a moment and try again.');
+            return;
+        }
+
+        const bulkBtn = document.getElementById('bulk-pdf-export-btn');
+        const originalText = bulkBtn ? bulkBtn.innerHTML : '';
+
+        try {
+            if (bulkBtn) {
+                bulkBtn.disabled = true;
+                bulkBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Building PDFs...';
+            }
+
+            const zip = new window.JSZip();
+            const wholeClassFolder = zip.folder('Whole Class');
+            const teacherFolder = zip.folder('Teachers');
+            const studentFolder = zip.folder('Students');
+
+            const wholeClassDoc = this.buildPdfDocument({ type: 'class', name: 'Whole Class' });
+            if (wholeClassDoc) {
+                wholeClassFolder.file('pep-whole-class-timetable.pdf', wholeClassDoc.output('arraybuffer'));
+            }
+
+            this.getAllPdfTeachers().forEach(teacher => {
+                const doc = this.buildPdfDocument({ type: 'teacher', name: teacher });
+                if (doc) {
+                    teacherFolder.file(`${this.toPdfFilename(teacher)}.pdf`, doc.output('arraybuffer'));
+                }
+            });
+
+            this.getAllPdfStudents().forEach(student => {
+                const doc = this.buildPdfDocument({ type: 'student', name: student });
+                if (doc) {
+                    studentFolder.file(`${this.toPdfFilename(student)}.pdf`, doc.output('arraybuffer'));
+                }
+            });
+
+            const blob = await zip.generateAsync({ type: 'blob' });
+            this.downloadBlob(blob, `pep-timetables-${new Date().toISOString().split('T')[0]}.zip`);
+        } catch (error) {
+            console.error('Bulk PDF export failed:', error);
+            alert('Bulk PDF export failed. Please try again or check the console for details.');
+        } finally {
+            if (bulkBtn) {
+                bulkBtn.disabled = false;
+                bulkBtn.innerHTML = originalText;
+            }
+        }
+    }
+
+    getAllPdfTeachers() {
+        const teachers = new Set();
+        this.data.forEach(row => {
+            this.getRowTeachers(row).forEach(teacher => teachers.add(teacher));
+        });
+        return Array.from(teachers).sort();
+    }
+
+    getAllPdfStudents() {
+        const students = new Set();
+        this.data.forEach(row => {
+            const studentText = String(row.Students || '').trim();
+            if (studentText.toUpperCase() === 'ALL') return;
+            this.splitList(studentText).forEach(student => {
+                if (student.toUpperCase() !== 'ALL') {
+                    students.add(student);
+                }
+            });
+        });
+        return Array.from(students).sort();
+    }
+
+    downloadBlob(blob, filename) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }
+
+    buildPdfDocument(person) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('landscape', 'mm', 'a4');
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -1071,7 +1195,7 @@ class TimetableApp {
             breakRowHeight = availableGridHeight / scheduleRows.length;
             slotRowHeight = breakRowHeight;
         }
-        const titleText = `PEP Schoolv2 | Middle School | ${person.name}`;
+        const titleText = `PEP Schoolv2 | ${person.name}`;
 
         doc.setFontSize(14);
         doc.setFont(undefined, 'bold');
@@ -1121,7 +1245,7 @@ class TimetableApp {
             rowY += rowHeight;
         });
 
-        doc.save(`${this.toPdfFilename(person.name)}.pdf`);
+        return doc;
     }
 
     renderPdfBreakRow(doc, breakItem, startX, rowY, timeColumnWidth, dayAreaWidth, rowHeight) {
@@ -1152,7 +1276,7 @@ class TimetableApp {
             if (person.type === 'student') {
                 doc.setFontSize(7);
                 doc.setFont(undefined, 'bold');
-                const label = `${this.formatTeacher(cls)} | ${cls.Subject}`;
+                const label = this.getClassTitle(cls);
                 const remainingLines = Math.max(1, Math.floor((bottomY - cursorY) / lineHeight));
                 cursorY = this.drawWrappedPdfText(doc, label, cellX + padding, cursorY, maxWidth, remainingLines, lineHeight);
                 cursorY += 1.2;
@@ -1161,7 +1285,8 @@ class TimetableApp {
 
             doc.setFontSize(7);
             doc.setFont(undefined, 'bold');
-            cursorY = this.drawWrappedPdfText(doc, cls.Subject, cellX + padding, cursorY, maxWidth, 1, lineHeight);
+            const heading = person.type === 'class' ? this.getClassTitle(cls) : cls.Subject;
+            cursorY = this.drawWrappedPdfText(doc, heading, cellX + padding, cursorY, maxWidth, 1, lineHeight);
 
             if (cursorY >= bottomY) return;
             doc.setFontSize(5.8);
@@ -1195,7 +1320,7 @@ class TimetableApp {
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-+|-+$/g, '') || 'person';
-        return `pep-middle-school-${safeName}-timetable`;
+        return `pep-${safeName}-timetable`;
     }
 }
 
